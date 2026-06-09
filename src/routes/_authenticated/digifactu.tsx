@@ -119,7 +119,11 @@ function InvoicesTab() {
       const rows = parseCsv(text);
       if (!rows.length) throw new Error("CSV vacío");
       const byName = new Map(clients.map((c) => [c.name.toLowerCase(), c.id]));
-      const toInsert: Array<Record<string, unknown>> = [];
+      const toInsert: Array<{
+        workspace_id: string; client_id: string; invoice_number: string;
+        amount: number; issue_date: string; due_date: string;
+        concept: string | null; source: string; status: "pending";
+      }> = [];
       const errors: string[] = [];
       for (const [i, r] of rows.entries()) {
         const clientKey = (r.client || r.cliente || r.client_name || "").toLowerCase();
