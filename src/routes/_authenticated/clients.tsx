@@ -51,9 +51,15 @@ function ClientsPage() {
   const createMut = useMutation({
     mutationFn: async (payload: Partial<Client> & { name: string }) => {
       if (!ws) throw new Error("Sin workspace");
-      const insert: Record<string, unknown> = { ...payload, workspace_id: ws.id };
-      if (payload.iban) insert.iban = payload.iban.replace(/\s+/g, "").toUpperCase();
-      const { error } = await supabase.from("clients").insert(insert);
+      const iban = payload.iban ? payload.iban.replace(/\s+/g, "").toUpperCase() : null;
+      const { error } = await supabase.from("clients").insert({
+        workspace_id: ws.id,
+        name: payload.name,
+        tax_id: payload.tax_id ?? null,
+        email: payload.email ?? null,
+        phone: payload.phone ?? null,
+        iban,
+      });
       if (error) throw error;
     },
     onSuccess: () => {
