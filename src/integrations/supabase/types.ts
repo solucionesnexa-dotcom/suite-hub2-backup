@@ -18,13 +18,23 @@ export type Database = {
         Row: {
           address: string | null
           bic: string | null
+          ciudad: string | null
           created_at: string
+          direccion: string | null
           email: string | null
+          email_general: string | null
+          estado: string
           iban: string | null
           id: string
           name: string
+          nombre_comercial: string | null
           notes: string | null
+          origen: string | null
+          pais: string | null
           phone: string | null
+          provincia: string | null
+          sector: string | null
+          tamano: string | null
           tax_id: string | null
           updated_at: string
           workspace_id: string
@@ -32,13 +42,23 @@ export type Database = {
         Insert: {
           address?: string | null
           bic?: string | null
+          ciudad?: string | null
           created_at?: string
+          direccion?: string | null
           email?: string | null
+          email_general?: string | null
+          estado?: string
           iban?: string | null
           id?: string
           name: string
+          nombre_comercial?: string | null
           notes?: string | null
+          origen?: string | null
+          pais?: string | null
           phone?: string | null
+          provincia?: string | null
+          sector?: string | null
+          tamano?: string | null
           tax_id?: string | null
           updated_at?: string
           workspace_id: string
@@ -46,13 +66,23 @@ export type Database = {
         Update: {
           address?: string | null
           bic?: string | null
+          ciudad?: string | null
           created_at?: string
+          direccion?: string | null
           email?: string | null
+          email_general?: string | null
+          estado?: string
           iban?: string | null
           id?: string
           name?: string
+          nombre_comercial?: string | null
           notes?: string | null
+          origen?: string | null
+          pais?: string | null
           phone?: string | null
+          provincia?: string | null
+          sector?: string | null
+          tamano?: string | null
           tax_id?: string | null
           updated_at?: string
           workspace_id?: string
@@ -60,6 +90,239 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "clients_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      company_bank_accounts: {
+        Row: {
+          alias: string
+          bic: string | null
+          created_at: string
+          iban: string
+          id: string
+          is_default: boolean
+          sepa_creditor_id: string
+          sepa_creditor_name: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          alias: string
+          bic?: string | null
+          created_at?: string
+          iban: string
+          id?: string
+          is_default?: boolean
+          sepa_creditor_id: string
+          sepa_creditor_name: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          alias?: string
+          bic?: string | null
+          created_at?: string
+          iban?: string
+          id?: string
+          is_default?: boolean
+          sepa_creditor_id?: string
+          sepa_creditor_name?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_bank_accounts_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      company_settings: {
+        Row: {
+          cif: string | null
+          ciudad: string | null
+          codigo_postal: string | null
+          color_marca: string | null
+          created_at: string
+          direccion: string | null
+          email: string | null
+          id: string
+          logo_url: string | null
+          pais: string | null
+          provincia: string | null
+          razon_social: string
+          telefono: string | null
+          updated_at: string
+          web: string | null
+          workspace_id: string
+        }
+        Insert: {
+          cif?: string | null
+          ciudad?: string | null
+          codigo_postal?: string | null
+          color_marca?: string | null
+          created_at?: string
+          direccion?: string | null
+          email?: string | null
+          id?: string
+          logo_url?: string | null
+          pais?: string | null
+          provincia?: string | null
+          razon_social: string
+          telefono?: string | null
+          updated_at?: string
+          web?: string | null
+          workspace_id: string
+        }
+        Update: {
+          cif?: string | null
+          ciudad?: string | null
+          codigo_postal?: string | null
+          color_marca?: string | null
+          created_at?: string
+          direccion?: string | null
+          email?: string | null
+          id?: string
+          logo_url?: string | null
+          pais?: string | null
+          provincia?: string | null
+          razon_social?: string
+          telefono?: string | null
+          updated_at?: string
+          web?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_settings_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: true
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contactos: {
+        Row: {
+          cargo: string | null
+          client_id: string
+          created_at: string
+          email: string | null
+          id: string
+          nombre: string
+          notas: string | null
+          telefono: string | null
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          cargo?: string | null
+          client_id: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          nombre: string
+          notas?: string | null
+          telefono?: string | null
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          cargo?: string | null
+          client_id?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          nombre?: string
+          notas?: string | null
+          telefono?: string | null
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contactos_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contactos_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      credit_accounts: {
+        Row: {
+          balance: number
+          created_at: string
+          id: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          balance?: number
+          created_at?: string
+          id?: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          balance?: number
+          created_at?: string
+          id?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_accounts_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: true
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      credit_movements: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          reason: string
+          reference: string | null
+          workspace_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          reason: string
+          reference?: string | null
+          workspace_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          reason?: string
+          reference?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_movements_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -75,10 +338,13 @@ export type Database = {
           created_at: string
           currency: string
           due_date: string
+          estado_cobro: string
+          fecha_vencimiento: string | null
           id: string
           invoice_number: string
           issue_date: string
           mandate_id: string | null
+          saas_origen: string | null
           source: string | null
           status: Database["public"]["Enums"]["invoice_status"]
           updated_at: string
@@ -91,10 +357,13 @@ export type Database = {
           created_at?: string
           currency?: string
           due_date?: string
+          estado_cobro?: string
+          fecha_vencimiento?: string | null
           id?: string
           invoice_number: string
           issue_date?: string
           mandate_id?: string | null
+          saas_origen?: string | null
           source?: string | null
           status?: Database["public"]["Enums"]["invoice_status"]
           updated_at?: string
@@ -107,10 +376,13 @@ export type Database = {
           created_at?: string
           currency?: string
           due_date?: string
+          estado_cobro?: string
+          fecha_vencimiento?: string | null
           id?: string
           invoice_number?: string
           issue_date?: string
           mandate_id?: string | null
+          saas_origen?: string | null
           source?: string | null
           status?: Database["public"]["Enums"]["invoice_status"]
           updated_at?: string
@@ -215,6 +487,7 @@ export type Database = {
       remittances: {
         Row: {
           collection_date: string
+          company_bank_account_id: string | null
           created_at: string
           created_by: string | null
           creditor_bic: string | null
@@ -231,6 +504,7 @@ export type Database = {
         }
         Insert: {
           collection_date: string
+          company_bank_account_id?: string | null
           created_at?: string
           created_by?: string | null
           creditor_bic?: string | null
@@ -247,6 +521,7 @@ export type Database = {
         }
         Update: {
           collection_date?: string
+          company_bank_account_id?: string | null
           created_at?: string
           created_by?: string | null
           creditor_bic?: string | null
@@ -262,6 +537,13 @@ export type Database = {
           xml_content?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "remittances_company_bank_account_id_fkey"
+            columns: ["company_bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "company_bank_accounts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "remittances_workspace_id_fkey"
             columns: ["workspace_id"]

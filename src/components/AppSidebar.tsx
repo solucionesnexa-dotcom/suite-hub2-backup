@@ -13,6 +13,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { useCurrentWorkspace } from "@/hooks/useCurrentWorkspace";
+import { useProfile } from "@/hooks/useProfile";
 
 const general = [
   { title: "Panel", url: "/dashboard", icon: LayoutDashboard },
@@ -21,12 +22,12 @@ const general = [
 
 const modules = [{ title: "Digifactu", url: "/digifactu", icon: FileSpreadsheet }];
 
-const admin = [{ title: "Ajustes", url: "/settings", icon: Settings }];
-
 export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { data: workspace } = useCurrentWorkspace();
+  const { data: profile } = useProfile();
   const isActive = (url: string) => pathname === url || pathname.startsWith(url + "/");
+  const canSeeSettings = profile?.rol_global !== "viewer";
 
   return (
     <Sidebar collapsible="icon">
@@ -80,20 +81,20 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="border-t">
-        <SidebarMenu>
-          {admin.map((it) => (
-            <SidebarMenuItem key={it.url}>
-              <SidebarMenuButton asChild isActive={isActive(it.url)} tooltip={it.title}>
-                <Link to={it.url}>
-                  <it.icon />
-                  <span>{it.title}</span>
+      {canSeeSettings && (
+        <SidebarFooter className="border-t">
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive={isActive("/settings")} tooltip="Configuración">
+                <Link to="/settings">
+                  <Settings />
+                  <span>Configuración</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
-          ))}
-        </SidebarMenu>
-      </SidebarFooter>
+          </SidebarMenu>
+        </SidebarFooter>
+      )}
     </Sidebar>
   );
 }

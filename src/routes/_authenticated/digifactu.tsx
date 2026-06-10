@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCurrentWorkspace } from "@/hooks/useCurrentWorkspace";
 import { AppShell } from "@/components/AppShell";
@@ -251,12 +251,48 @@ function RemittanceTab() {
   const { data: invoices = [] } = useInvoices();
   const { data: clients = [] } = useClients();
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bankAccountId, setBankAccountId] = useState<string>("");
   const [creditorName, setCreditorName] = useState("");
   const [creditorIban, setCreditorIban] = useState("");
   const [creditorBic, setCreditorBic] = useState("");
   const [creditorId, setCreditorId] = useState("");
   const [collectionDate, setCollectionDate] = useState(new Date(Date.now() + 5 * 86400000).toISOString().slice(0, 10));
   const [issues, setIssues] = useState<string[]>([]);
+
+  const { data: bankAccounts = [] } = useQuery({
+    queryKey: ["company-bank-accounts", ws?.id],
+    enabled: !!ws,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("company_bank_accounts")
+        .select("*")
+        .order("is_default", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  useEffect(() => {
+    if (!bankAccountId && bankAccounts.length) {
+      const def = bankAccounts.find((b) => b.is_default) ?? bankAccounts[0];
+      setBankAccountId(def.id);
+      setCreditorName(def.sepa_creditor_name);
+      setCreditorIban(def.iban);
+      setCreditorBic(def.bic ?? "");
+      setCreditorId(def.sepa_creditor_id);
+    }
+  }, [bankAccounts, bankAccountId]);
+
+  function onBankChange(id: string) {
+    setBankAccountId(id);
+    const b = bankAccounts.find((x) => x.id === id);
+    if (b) {
+      setCreditorName(b.sepa_creditor_name);
+      setCreditorIban(b.iban);
+      setCreditorBic(b.bic ?? "");
+      setCreditorId(b.sepa_creditor_id);
+    }
+  }
 
   const pending = invoices.filter((i) => i.status === "pending");
 
@@ -323,6 +359,7 @@ function RemittanceTab() {
         transaction_count: input.invoices.length,
         xml_content: xml,
         status: "generated",
+        company_bank_account_id: bankAccountId || null,
       }).select().single();
       if (error) throw error;
       await supabase.from("remittance_invoices").insert(input.invoices.map((i) => ({
@@ -383,11 +420,27 @@ function RemittanceTab() {
       <Card>
         <CardHeader><CardTitle className="text-base">Datos del acreedor</CardTitle></CardHeader>
         <CardContent className="space-y-3">
+          <div className="space-y-1.5">
+            <Label>Cuenta emisora</Label>
+            {bankAccounts.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Sin cuentas configuradas. Añade una en Configuración → Cuentas bancarias.</p>
+            ) : (
+              <Select value={bankAccountId} onValueChange={onBankChange}>
+                <SelectTrigger><SelectValue placeholder="Selecciona cuenta" /></SelectTrigger>
+                <SelectContent>
+                  {bankAccounts.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>{b.alias} — {b.iban.slice(0, 8)}…</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
           <div className="space-y-1.5"><Label>Nombre</Label><Input value={creditorName} onChange={(e) => setCreditorName(e.target.value)} /></div>
           <div className="space-y-1.5"><Label>IBAN</Label><Input value={creditorIban} onChange={(e) => setCreditorIban(e.target.value)} className="font-mono" /></div>
           <div className="space-y-1.5"><Label>BIC (opcional)</Label><Input value={creditorBic} onChange={(e) => setCreditorBic(e.target.value)} className="font-mono" /></div>
           <div className="space-y-1.5"><Label>Identificador acreedor (Creditor ID)</Label><Input value={creditorId} onChange={(e) => setCreditorId(e.target.value)} placeholder="ESxxZZZxxxxxxxxx" /></div>
           <div className="space-y-1.5"><Label>Fecha de cobro</Label><Input type="date" value={collectionDate} onChange={(e) => setCollectionDate(e.target.value)} /></div>
+
 
           <div className="rounded-md border bg-muted/40 p-3 text-sm">
             <div className="flex justify-between"><span className="text-muted-foreground">Operaciones</span><span className="font-mono tabular-nums">{selected.size}</span></div>
