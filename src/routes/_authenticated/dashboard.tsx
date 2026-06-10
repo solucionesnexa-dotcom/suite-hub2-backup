@@ -16,26 +16,41 @@ function DashboardPage() {
   const { data: stats } = useQuery({
     queryKey: ["dashboard-stats"],
     queryFn: async () => {
-      const [clients, invoices, pending, remittances] = await Promise.all([
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+      
+      const [clients, pending, totalAmount, monthlyRemittances] = await Promise.all([
         supabase.from("clients").select("id", { count: "exact", head: true }),
-        supabase.from("invoices").select("id", { count: "exact", head: true }),
-        supabase.from("invoices").select("id", { count: "exact", head: true }).eq("status", "pending"),
-        supabase.from("remittances").select("id", { count: "exact", head: true }),
+        supabase
+          .from("invoices")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "pending"),
+        supabase
+          .from("invoices")
+          .select("amount")
+          .eq("status", "pending"),
+        supabase
+          .from("remittances")
+          .select("id", { count: "exact", head: true })
+          .gte("created_at", monthStart),
       ]);
+      
+      const totalPending = totalAmount.data?.reduce((sum, inv) => sum + Number(inv.amount), 0) ?? 0;
+      
       return {
-        clients: clients.count ?? 0,
-        invoices: invoices.count ?? 0,
-        pending: pending.count ?? 0,
-        remittances: remittances.count ?? 0,
+        activeClients: clients.count ?? 0,
+        pendingInvoices: pending.count ?? 0,
+        totalPendingAmount: totalPending,
+        monthlyRemittances: monthlyRemittances.count ?? 0,
       };
     },
   });
 
   const cards = [
-    { label: "Clientes", value: stats?.clients ?? 0, icon: Users, to: "/clients" },
-    { label: "Facturas", value: stats?.invoices ?? 0, icon: FileText, to: "/digifactu" },
-    { label: "Pendientes de remesar", value: stats?.pending ?? 0, icon: AlertCircle, to: "/digifactu" },
-    { label: "Remesas generadas", value: stats?.remittances ?? 0, icon: Send, to: "/digifactu" },
+    { label: "Clientes activos", value: stats?.activeClients ?? 0, icon: Users, to: "/clients" },
+    { label: "Facturas pendientes", value: stats?.pendingInvoices ?? 0, icon: AlertCircle, to: "/factu-nexa" },
+    { label: "Importe pendiente", value: `€${(stats?.totalPendingAmount ?? 0).toFixed(2)}`, icon: FileText, to: "/factu-nexa" },
+    { label: "Remesas este mes", value: stats?.monthlyRemittances ?? 0, icon: Send, to: "/factu-nexa" },
   ];
 
   return (
@@ -72,8 +87,8 @@ function DashboardPage() {
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
             <Button asChild variant="outline"><Link to="/clients">Nuevo cliente</Link></Button>
-            <Button asChild><Link to="/digifactu">Importar facturas</Link></Button>
-            <Button asChild variant="secondary"><Link to="/digifactu">Generar remesa SEPA</Link></Button>
+            <Button asChild><Link to="/factu-nexa">Importar facturas</Link></Button>
+            <Button asChild variant="secondary"><Link to="/factu-nexa">Generar remesa SEPA</Link></Button>
           </CardContent>
         </Card>
       </div>

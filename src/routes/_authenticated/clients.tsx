@@ -15,6 +15,9 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { isValidIban, formatIban } from "@/lib/iban";
@@ -27,13 +30,15 @@ export const Route = createFileRoute("/_authenticated/clients")({
 
 type Client = {
   id: string; name: string; tax_id: string | null; email: string | null;
-  phone: string | null; iban: string | null; created_at: string;
+  phone: string | null; iban: string | null; created_at: string; estado?: string; sector?: string;
 };
 
 function ClientsPage() {
   const qc = useQueryClient();
   const { data: ws } = useCurrentWorkspace();
   const [q, setQ] = useState("");
+  const [estado, setEstado] = useState<string>("");
+  const [sector, setSector] = useState<string>("");
   const [open, setOpen] = useState(false);
 
   const { data: clients = [], isLoading } = useQuery({
@@ -41,7 +46,7 @@ function ClientsPage() {
     queryFn: async (): Promise<Client[]> => {
       const { data, error } = await supabase
         .from("clients")
-        .select("id, name, tax_id, email, phone, iban, created_at")
+        .select("id, name, tax_id, email, phone, iban, created_at, estado, sector")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data ?? [];
@@ -49,7 +54,7 @@ function ClientsPage() {
   });
 
   const createMut = useMutation({
-    mutationFn: async (payload: Partial<Client> & { name: string }) => {
+    mutationFn: async (payload: Partial<Client> & { name: string; estado?: string; sector?: string }) => {
       if (!ws) throw new Error("Sin workspace");
       const iban = payload.iban ? payload.iban.replace(/\s+/g, "").toUpperCase() : null;
       const { error } = await supabase.from("clients").insert({
@@ -59,6 +64,8 @@ function ClientsPage() {
         email: payload.email ?? null,
         phone: payload.phone ?? null,
         iban,
+        estado: payload.estado ?? "activo",
+        sector: payload.sector ?? null,
       });
       if (error) throw error;
     },
@@ -82,9 +89,12 @@ function ClientsPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const filtered = clients.filter((c) =>
-    !q ? true : (c.name + " " + (c.tax_id ?? "") + " " + (c.email ?? "")).toLowerCase().includes(q.toLowerCase()),
-  );
+  const filtered = clients.filter((c) => {
+    const matchSearch = !q ? true : (c.name + " " + (c.tax_id ?? "") + " " + (c.email ?? "")).toLowerCase().includes(q.toLowerCase());
+    const matchEstado = !estado ? true : c.estado === estado;
+    const matchSector = !sector ? true : c.sector === sector;
+    return matchSearch && matchEstado && matchSector;
+  });
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -99,8 +109,13 @@ function ClientsPage() {
       email: String(fd.get("email") ?? "").trim() || null,
       phone: String(fd.get("phone") ?? "").trim() || null,
       iban: iban || null,
+      estado: String(fd.get("estado") ?? "activo"),
+      sector: String(fd.get("sector") ?? "").trim() || null,
     });
   }
+
+  // Get unique sectors for filter
+  const sectors = Array.from(new Set(clients.map((c) => c.sector).filter(Boolean))) as string[];
 
   return (
     <AppShell title="Clientes">
@@ -137,6 +152,23 @@ function ClientsPage() {
                   <Label htmlFor="email">Email</Label>
                   <Input id="email" name="email" type="email" />
                 </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="estado">Estado</Label>
+                    <Select name="estado" defaultValue="activo">
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="activo">Activo</SelectItem>
+                        <SelectItem value="inactivo">Inactivo</SelectItem>
+                        <SelectItem value="potencial">Potencial</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="sector">Sector</Label>
+                    <Input id="sector" name="sector" placeholder="Sanidad, Finanzas, etc." />
+                  </div>
+                </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="iban">IBAN</Label>
                   <Input id="iban" name="iban" placeholder="ES91 2100 0418 4502 0005 1332" className="font-mono" />
@@ -149,9 +181,29 @@ function ClientsPage() {
           </Dialog>
         </div>
 
-        <div className="relative max-w-sm">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar cliente..." className="pl-9" />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar cliente..." className="pl-9" />
+          </div>
+          <Select value={estado} onValueChange={setEstado}>
+            <SelectTrigger><SelectValue placeholder="Todos los estados" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">Todos</SelectItem>
+              <SelectItem value="activo">Activo</SelectItem>
+              <SelectItem value="inactivo">Inactivo</SelectItem>
+              <SelectItem value="potencial">Potencial</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={sector} onValueChange={setSector}>
+            <SelectTrigger><SelectValue placeholder="Todos los sectores" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">Todos</SelectItem>
+              {sectors.map((s) => (
+                <SelectItem key={s} value={s}>{s}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <Card className="overflow-hidden">
@@ -161,16 +213,17 @@ function ClientsPage() {
                 <TableHead>Nombre</TableHead>
                 <TableHead>NIF</TableHead>
                 <TableHead>Email</TableHead>
+                <TableHead>Sector</TableHead>
                 <TableHead>IBAN</TableHead>
                 <TableHead className="w-[80px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading && (
-                <TableRow><TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-8">Cargando...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-8">Cargando...</TableCell></TableRow>
               )}
               {!isLoading && filtered.length === 0 && (
-                <TableRow><TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-8">Sin clientes todavía.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-8">Sin clientes.</TableCell></TableRow>
               )}
               {filtered.map((c) => (
                 <TableRow key={c.id}>
@@ -181,6 +234,7 @@ function ClientsPage() {
                   </TableCell>
                   <TableCell className="text-muted-foreground">{c.tax_id ?? "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{c.email ?? "—"}</TableCell>
+                  <TableCell className="text-muted-foreground">{c.sector ?? "—"}</TableCell>
                   <TableCell className="font-mono text-xs">{c.iban ? formatIban(c.iban) : "—"}</TableCell>
                   <TableCell className="text-right">
                     <Button

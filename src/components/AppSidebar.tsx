@@ -20,7 +20,7 @@ const general = [
   { title: "Clientes", url: "/clients", icon: Users },
 ];
 
-const modules = [{ title: "Digifactu", url: "/digifactu", icon: FileSpreadsheet }];
+const modules = [{ title: "FactuNexa", url: "/factu-nexa", icon: FileSpreadsheet }];
 
 export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });

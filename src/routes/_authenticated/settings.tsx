@@ -55,10 +55,12 @@ function SettingsPage() {
           <TabsList>
             <TabsTrigger value="company">Mi empresa</TabsTrigger>
             <TabsTrigger value="banks">Cuentas bancarias</TabsTrigger>
+            <TabsTrigger value="users">Usuarios</TabsTrigger>
             <TabsTrigger value="account">Mi cuenta</TabsTrigger>
           </TabsList>
           <TabsContent value="company"><CompanyTab /></TabsContent>
           <TabsContent value="banks"><BanksTab /></TabsContent>
+          <TabsContent value="users"><UsersTab /></TabsContent>
           <TabsContent value="account"><AccountTab /></TabsContent>
         </Tabs>
       </div>
@@ -320,6 +322,172 @@ function AccountTab() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function UsersTab() {
+  const qc = useQueryClient();
+  const { data: profile } = useProfile();
+  const { data: ws } = useCurrentWorkspace();
+  const [open, setOpen] = useState(false);
+
+  const { data: users = [] } = useQuery({
+    queryKey: ["workspace-users", ws?.id],
+    enabled: !!ws,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name, email, rol_global, created_at")
+        .eq("workspace_id", ws!.id)
+        .order("created_at");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const removeUserMut = useMutation({
+    mutationFn: async (userId: string) => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ workspace_id: null })
+        .eq("id", userId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Usuario removido del workspace");
+      qc.invalidateQueries({ queryKey: ["workspace-users"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const isAdmin = profile?.rol_global === "admin";
+  const roleLabels = { admin: "Admin", consultor: "Consultor", viewer: "Viewer" } as const;
+
+  if (!isAdmin) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center text-sm text-muted-foreground">
+          Solo los administradores pueden gestionar usuarios.
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle className="text-base">Usuarios del workspace</CardTitle>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button size="sm"><Plus className="mr-2 h-4 w-4" /> Invitar usuario</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Invitar usuario</DialogTitle></DialogHeader>
+            <InviteUserForm onSuccess={() => setOpen(false)} />
+          </DialogContent>
+        </Dialog>
+      </CardHeader>
+      <CardContent className="p-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Email</TableHead>
+              <TableHead>Nombre</TableHead>
+              <TableHead>Rol</TableHead>
+              <TableHead>Desde</TableHead>
+              <TableHead></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {users.length === 0 && (
+              <TableRow><TableCell colSpan={5} className="text-center py-8 text-sm text-muted-foreground">Sin usuarios en este workspace.</TableCell></TableRow>
+            )}
+            {users.map((u) => (
+              <TableRow key={u.id}>
+                <TableCell className="font-mono text-xs">{u.email}</TableCell>
+                <TableCell>{u.full_name ?? "—"}</TableCell>
+                <TableCell><Badge variant="outline">{roleLabels[u.rol_global]}</Badge></TableCell>
+                <TableCell className="text-sm text-muted-foreground">{u.created_at?.slice(0, 10)}</TableCell>
+                <TableCell className="text-right">
+                  {u.id !== profile?.id && (
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      onClick={() => {
+                        if (confirm(`¿Remover a ${u.full_name || u.email}?`)) {
+                          removeUserMut.mutate(u.id);
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+  );
+}
+
+function InviteUserForm({ onSuccess }: { onSuccess: () => void }) {
+  const qc = useQueryClient();
+  const { data: ws } = useCurrentWorkspace();
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleInvite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      if (!ws) throw new Error("Sin workspace");
+      
+      // Check if user exists by email
+      const { data: existingUser } = await supabase.auth.admin.listUsers();
+      const user = existingUser?.users?.find((u) => u.email === email);
+      
+      if (!user) {
+        return toast.error("Usuario no encontrado en el sistema");
+      }
+
+      // Add user to workspace
+      const { error } = await supabase
+        .from("profiles")
+        .update({ workspace_id: ws.id })
+        .eq("id", user.id);
+      
+      if (error) throw error;
+      
+      toast.success(`${email} añadido al workspace`);
+      qc.invalidateQueries({ queryKey: ["workspace-users"] });
+      onSuccess();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error al invitar usuario");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleInvite} className="space-y-3">
+      <div className="space-y-1.5">
+        <Label htmlFor="email">Email del usuario *</Label>
+        <Input
+          id="email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="usuario@ejemplo.com"
+          required
+        />
+        <p className="text-xs text-muted-foreground">El usuario debe estar registrado en el sistema.</p>
+      </div>
+      <DialogFooter>
+        <Button type="submit" disabled={loading}>Invitar</Button>
+      </DialogFooter>
+    </form>
   );
 }
 
