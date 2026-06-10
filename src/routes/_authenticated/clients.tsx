@@ -36,6 +36,8 @@ import { Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { isValidIban, formatIban } from "@/lib/iban";
 
+const ALL_FILTER_VALUE = "__all__";
+
 export const Route = createFileRoute("/_authenticated/clients")({
   ssr: false,
   head: () => ({ meta: [{ title: "Clientes · Nexa Suite" }] }),
@@ -231,23 +233,29 @@ function ClientsPage() {
               className="pl-9"
             />
           </div>
-          <Select value={estado} onValueChange={setEstado}>
+          <Select
+            value={estado || ALL_FILTER_VALUE}
+            onValueChange={(value) => setEstado(value === ALL_FILTER_VALUE ? "" : value)}
+          >
             <SelectTrigger>
               <SelectValue placeholder="Todos los estados" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Todos</SelectItem>
+              <SelectItem value={ALL_FILTER_VALUE}>Todos</SelectItem>
               <SelectItem value="activo">Activo</SelectItem>
               <SelectItem value="inactivo">Inactivo</SelectItem>
               <SelectItem value="potencial">Potencial</SelectItem>
             </SelectContent>
           </Select>
-          <Select value={sector} onValueChange={setSector}>
+          <Select
+            value={sector || ALL_FILTER_VALUE}
+            onValueChange={(value) => setSector(value === ALL_FILTER_VALUE ? "" : value)}
+          >
             <SelectTrigger>
               <SelectValue placeholder="Todos los sectores" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Todos</SelectItem>
+              <SelectItem value={ALL_FILTER_VALUE}>Todos</SelectItem>
               {sectors.map((s) => (
                 <SelectItem key={s} value={s}>
                   {s}

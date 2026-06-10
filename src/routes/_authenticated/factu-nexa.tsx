@@ -46,6 +46,8 @@ import {
 import { formatIban } from "@/lib/iban";
 import { PdfImportDialog } from "@/components/PdfImportDialog";
 
+const ALL_FILTER_VALUE = "__all__";
+
 export const Route = createFileRoute("/_authenticated/factu-nexa")({
   ssr: false,
   head: () => ({ meta: [{ title: "FactuNexa · Nexa Suite" }] }),
@@ -407,12 +409,15 @@ function InvoicesTab() {
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
-        <Select value={filterClient} onValueChange={setFilterClient}>
+        <Select
+          value={filterClient || ALL_FILTER_VALUE}
+          onValueChange={(value) => setFilterClient(value === ALL_FILTER_VALUE ? "" : value)}
+        >
           <SelectTrigger>
             <SelectValue placeholder="Todos los clientes" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Todos</SelectItem>
+            <SelectItem value={ALL_FILTER_VALUE}>Todos</SelectItem>
             {clients.map((c) => (
               <SelectItem key={c.id} value={c.id}>
                 {c.name}
@@ -420,12 +425,15 @@ function InvoicesTab() {
             ))}
           </SelectContent>
         </Select>
-        <Select value={filterStatus} onValueChange={setFilterStatus}>
+        <Select
+          value={filterStatus || ALL_FILTER_VALUE}
+          onValueChange={(value) => setFilterStatus(value === ALL_FILTER_VALUE ? "" : value)}
+        >
           <SelectTrigger>
             <SelectValue placeholder="Todos los estados" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Todos</SelectItem>
+            <SelectItem value={ALL_FILTER_VALUE}>Todos</SelectItem>
             <SelectItem value="pending">Pendiente</SelectItem>
             <SelectItem value="included">Remesada</SelectItem>
             <SelectItem value="paid">Cobrada</SelectItem>
