@@ -9,18 +9,42 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Upload, Send, Download, Trash2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { parseCsv, parseAmount, parseDate } from "@/lib/csv";
-import { generateSepaXml, validateRemittance, downloadXml, type SepaInvoiceInput } from "@/lib/sepa";
+import {
+  generateSepaXml,
+  validateRemittance,
+  downloadXml,
+  type SepaInvoiceInput,
+} from "@/lib/sepa";
 import { formatIban } from "@/lib/iban";
 import { PdfImportDialog } from "@/components/PdfImportDialog";
-
 
 export const Route = createFileRoute("/_authenticated/factu-nexa")({
   ssr: false,
@@ -29,11 +53,28 @@ export const Route = createFileRoute("/_authenticated/factu-nexa")({
 });
 
 type Invoice = {
-  id: string; client_id: string; mandate_id: string | null;
-  invoice_number: string; issue_date: string; due_date: string;
-  amount: number; currency: string; concept: string | null; status: string;
+  id: string;
+  client_id: string;
+  mandate_id: string | null;
+  invoice_number: string;
+  issue_date: string;
+  due_date: string;
+  amount: number;
+  currency: string;
+  concept: string | null;
+  status: string;
 };
 type ClientLite = { id: string; name: string; iban: string | null; bic: string | null };
+type Mandate = {
+  client_id: string;
+  is_active?: boolean;
+  iban?: string | null;
+  bic?: string | null;
+  mandate_reference?: string | null;
+  signature_date?: string | null;
+  sequence_type?: string | null;
+};
+type RemittanceInvoice = { remittance_id: string; invoice_id: string; amount: number };
 
 function FactuNexaPage() {
   return (
@@ -41,7 +82,9 @@ function FactuNexaPage() {
       <div className="mx-auto max-w-7xl space-y-6">
         <div>
           <h2 className="text-2xl font-semibold tracking-tight">FactuNexa</h2>
-          <p className="text-sm text-muted-foreground">Importa facturas y genera remesas SEPA pain.008.001.02.</p>
+          <p className="text-sm text-muted-foreground">
+            Importa facturas y genera remesas SEPA pain.008.001.02.
+          </p>
         </div>
         <Tabs defaultValue="invoices">
           <TabsList>
@@ -49,9 +92,15 @@ function FactuNexaPage() {
             <TabsTrigger value="remit">Generar remesa</TabsTrigger>
             <TabsTrigger value="history">Histórico</TabsTrigger>
           </TabsList>
-          <TabsContent value="invoices"><InvoicesTab /></TabsContent>
-          <TabsContent value="remit"><RemittanceTab /></TabsContent>
-          <TabsContent value="history"><HistoryTab /></TabsContent>
+          <TabsContent value="invoices">
+            <InvoicesTab />
+          </TabsContent>
+          <TabsContent value="remit">
+            <RemittanceTab />
+          </TabsContent>
+          <TabsContent value="history">
+            <HistoryTab />
+          </TabsContent>
         </Tabs>
       </div>
     </AppShell>
@@ -62,7 +111,10 @@ function useClients() {
   return useQuery({
     queryKey: ["clients-lite"],
     queryFn: async (): Promise<ClientLite[]> => {
-      const { data, error } = await supabase.from("clients").select("id, name, iban, bic").order("name");
+      const { data, error } = await supabase
+        .from("clients")
+        .select("id, name, iban, bic")
+        .order("name");
       if (error) throw error;
       return data ?? [];
     },
@@ -75,7 +127,9 @@ function useInvoices() {
     queryFn: async (): Promise<Invoice[]> => {
       const { data, error } = await supabase
         .from("invoices")
-        .select("id, client_id, mandate_id, invoice_number, issue_date, due_date, amount, currency, concept, status")
+        .select(
+          "id, client_id, mandate_id, invoice_number, issue_date, due_date, amount, currency, concept, status",
+        )
         .order("due_date", { ascending: false });
       if (error) throw error;
       return (data ?? []).map((i) => ({ ...i, amount: Number(i.amount) }));
@@ -96,7 +150,7 @@ function InvoicesTab() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Load mandates for all clients
-  const { data: mandatesByClient = new Map<string, any>() } = useQuery({
+  const { data: mandatesByClient = new Map<string, boolean>() } = useQuery<Map<string, boolean>>({
     queryKey: ["all-mandates-invoices"],
     queryFn: async () => {
       const { data, error } = await supabase.from("sepa_mandates").select("client_id, is_active");
@@ -108,7 +162,9 @@ function InvoicesTab() {
   });
 
   const createMut = useMutation({
-    mutationFn: async (payload: Omit<Invoice, "id" | "currency" | "status"> & { status?: string }) => {
+    mutationFn: async (
+      payload: Omit<Invoice, "id" | "currency" | "status"> & { status?: string },
+    ) => {
       if (!ws) throw new Error("Sin workspace");
       const { error } = await supabase.from("invoices").insert({
         workspace_id: ws.id,
@@ -122,12 +178,19 @@ function InvoicesTab() {
       });
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Factura creada"); qc.invalidateQueries({ queryKey: ["invoices"] }); setOpen(false); },
+    onSuccess: () => {
+      toast.success("Factura creada");
+      qc.invalidateQueries({ queryKey: ["invoices"] });
+      setOpen(false);
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const deleteMut = useMutation({
-    mutationFn: async (id: string) => { const { error } = await supabase.from("invoices").delete().eq("id", id); if (error) throw error; },
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("invoices").delete().eq("id", id);
+      if (error) throw error;
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["invoices"] }),
   });
 
@@ -139,9 +202,15 @@ function InvoicesTab() {
       if (!rows.length) throw new Error("CSV vacío");
       const byName = new Map(clients.map((c) => [c.name.toLowerCase(), c.id]));
       const toInsert: Array<{
-        workspace_id: string; client_id: string; invoice_number: string;
-        amount: number; issue_date: string; due_date: string;
-        concept: string | null; source: string; status: "pending";
+        workspace_id: string;
+        client_id: string;
+        invoice_number: string;
+        amount: number;
+        issue_date: string;
+        due_date: string;
+        concept: string | null;
+        source: string;
+        status: "pending";
       }> = [];
       const errors: string[] = [];
       let newClientsCount = 0;
@@ -149,7 +218,7 @@ function InvoicesTab() {
       for (const [i, r] of rows.entries()) {
         const clientKey = (r.client || r.cliente || r.client_name || "").toLowerCase();
         let client_id = byName.get(clientKey);
-        
+
         if (!client_id) {
           // Create client automatically
           const { data: newClient, error: clientError } = await supabase
@@ -157,23 +226,38 @@ function InvoicesTab() {
             .insert({ workspace_id: ws.id, name: clientKey, estado: "activo" })
             .select("id")
             .single();
-          if (clientError) { errors.push(`Fila ${i + 2}: no se pudo crear cliente`); continue; }
+          if (clientError) {
+            errors.push(`Fila ${i + 2}: no se pudo crear cliente`);
+            continue;
+          }
           client_id = newClient.id;
           newClientsCount++;
           byName.set(clientKey, client_id);
         }
 
         const amount = parseAmount(r.amount || r.importe || r.total || "");
-        if (!isFinite(amount) || amount <= 0) { errors.push(`Fila ${i + 2}: importe inválido`); continue; }
+        if (!isFinite(amount) || amount <= 0) {
+          errors.push(`Fila ${i + 2}: importe inválido`);
+          continue;
+        }
         const invoice_number = r.invoice_number || r.numero || r.number || r.factura || "";
-        if (!invoice_number) { errors.push(`Fila ${i + 2}: falta número`); continue; }
-        const due_date = parseDate(r.due_date || r.vencimiento || "") || new Date().toISOString().slice(0, 10);
+        if (!invoice_number) {
+          errors.push(`Fila ${i + 2}: falta número`);
+          continue;
+        }
+        const due_date =
+          parseDate(r.due_date || r.vencimiento || "") || new Date().toISOString().slice(0, 10);
         const issue_date = parseDate(r.issue_date || r.fecha || "") || due_date;
         toInsert.push({
-          workspace_id: ws.id, client_id, invoice_number, amount,
-          issue_date, due_date,
+          workspace_id: ws.id,
+          client_id,
+          invoice_number,
+          amount,
+          issue_date,
+          due_date,
           concept: r.concept || r.concepto || null,
-          source: r.saas_origen || "csv", status: "pending",
+          source: r.saas_origen || "csv",
+          status: "pending",
         });
       }
       if (!toInsert.length) throw new Error(errors[0] || "No se pudo importar ninguna fila");
@@ -182,7 +266,9 @@ function InvoicesTab() {
       return { inserted: toInsert.length, newClientsCount, errors };
     },
     onSuccess: (res) => {
-      toast.success(`${res.inserted} facturas importadas${res.newClientsCount ? ` (${res.newClientsCount} clientes nuevos)` : ""}`);
+      toast.success(
+        `${res.inserted} facturas importadas${res.newClientsCount ? ` (${res.newClientsCount} clientes nuevos)` : ""}`,
+      );
       if (res.errors.length) toast.warning(`${res.errors.length} filas omitidas`);
       qc.invalidateQueries({ queryKey: ["invoices"] });
       qc.invalidateQueries({ queryKey: ["clients-lite"] });
@@ -207,12 +293,13 @@ function InvoicesTab() {
   }
 
   const clientName = (id: string) => clients.find((c) => c.id === id)?.name ?? "—";
-  
+
   const filtered = invoices.filter((inv) => {
     const matchClient = !filterClient || inv.client_id === filterClient;
     const matchStatus = !filterStatus || inv.status === filterStatus;
-    const matchDate = (!filterDateFrom || inv.due_date >= filterDateFrom) && 
-                      (!filterDateTo || inv.due_date <= filterDateTo);
+    const matchDate =
+      (!filterDateFrom || inv.due_date >= filterDateFrom) &&
+      (!filterDateTo || inv.due_date <= filterDateTo);
     return matchClient && matchStatus && matchDate;
   });
 
@@ -233,31 +320,87 @@ function InvoicesTab() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
-        <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" aria-label="Importar CSV" onChange={(e) => { const f = e.target.files?.[0]; if (f) importMut.mutate(f); e.currentTarget.value = ""; }} />
-        <Button variant="outline" onClick={() => fileRef.current?.click()} disabled={importMut.isPending}>
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".csv,text/csv"
+          className="hidden"
+          aria-label="Importar CSV"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) importMut.mutate(f);
+            e.currentTarget.value = "";
+          }}
+        />
+        <Button
+          variant="outline"
+          onClick={() => fileRef.current?.click()}
+          disabled={importMut.isPending}
+        >
           <Upload className="mr-2 h-4 w-4" /> Importar CSV
         </Button>
         <PdfImportDialog workspaceId={ws?.id} clients={clients} />
         <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild><Button><Plus className="mr-2 h-4 w-4" />Nueva factura</Button></DialogTrigger>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Nueva factura
+            </Button>
+          </DialogTrigger>
           <DialogContent>
-            <DialogHeader><DialogTitle>Nueva factura</DialogTitle></DialogHeader>
+            <DialogHeader>
+              <DialogTitle>Nueva factura</DialogTitle>
+            </DialogHeader>
             <form onSubmit={onSubmit} className="space-y-3">
               <div className="space-y-1.5">
                 <Label>Cliente *</Label>
                 <Select name="client_id" required>
-                  <SelectTrigger><SelectValue placeholder="Selecciona cliente" /></SelectTrigger>
-                  <SelectContent>{clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona cliente" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
                 </Select>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5"><Label>Número *</Label><Input name="invoice_number" required /></div>
-                <div className="space-y-1.5"><Label>Importe (€) *</Label><Input name="amount" type="number" step="0.01" required /></div>
-                <div className="space-y-1.5"><Label>Emisión</Label><Input name="issue_date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} /></div>
-                <div className="space-y-1.5"><Label>Vencimiento *</Label><Input name="due_date" type="date" required defaultValue={new Date().toISOString().slice(0, 10)} /></div>
+                <div className="space-y-1.5">
+                  <Label>Número *</Label>
+                  <Input name="invoice_number" required />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Importe (€) *</Label>
+                  <Input name="amount" type="number" step="0.01" required />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Emisión</Label>
+                  <Input
+                    name="issue_date"
+                    type="date"
+                    defaultValue={new Date().toISOString().slice(0, 10)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Vencimiento *</Label>
+                  <Input
+                    name="due_date"
+                    type="date"
+                    required
+                    defaultValue={new Date().toISOString().slice(0, 10)}
+                  />
+                </div>
               </div>
-              <div className="space-y-1.5"><Label>Concepto</Label><Input name="concept" /></div>
-              <DialogFooter><Button type="submit">Guardar</Button></DialogFooter>
+              <div className="space-y-1.5">
+                <Label>Concepto</Label>
+                <Input name="concept" />
+              </div>
+              <DialogFooter>
+                <Button type="submit">Guardar</Button>
+              </DialogFooter>
             </form>
           </DialogContent>
         </Dialog>
@@ -265,16 +408,22 @@ function InvoicesTab() {
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
         <Select value={filterClient} onValueChange={setFilterClient}>
-          <SelectTrigger><SelectValue placeholder="Todos los clientes" /></SelectTrigger>
+          <SelectTrigger>
+            <SelectValue placeholder="Todos los clientes" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="">Todos</SelectItem>
             {clients.map((c) => (
-              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+              <SelectItem key={c.id} value={c.id}>
+                {c.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
         <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger><SelectValue placeholder="Todos los estados" /></SelectTrigger>
+          <SelectTrigger>
+            <SelectValue placeholder="Todos los estados" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="">Todos</SelectItem>
             <SelectItem value="pending">Pendiente</SelectItem>
@@ -282,8 +431,18 @@ function InvoicesTab() {
             <SelectItem value="paid">Cobrada</SelectItem>
           </SelectContent>
         </Select>
-        <Input type="date" placeholder="Desde" value={filterDateFrom} onChange={(e) => setFilterDateFrom(e.target.value)} />
-        <Input type="date" placeholder="Hasta" value={filterDateTo} onChange={(e) => setFilterDateTo(e.target.value)} />
+        <Input
+          type="date"
+          placeholder="Desde"
+          value={filterDateFrom}
+          onChange={(e) => setFilterDateFrom(e.target.value)}
+        />
+        <Input
+          type="date"
+          placeholder="Hasta"
+          value={filterDateTo}
+          onChange={(e) => setFilterDateTo(e.target.value)}
+        />
       </div>
 
       <Card>
@@ -291,14 +450,29 @@ function InvoicesTab() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Número</TableHead><TableHead>Cliente</TableHead>
-                <TableHead>Vencimiento</TableHead><TableHead className="text-right">Importe</TableHead>
-                <TableHead>Estado</TableHead><TableHead></TableHead>
+                <TableHead>Número</TableHead>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Vencimiento</TableHead>
+                <TableHead className="text-right">Importe</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading && <TableRow><TableCell colSpan={6} className="text-center py-8 text-sm text-muted-foreground">Cargando...</TableCell></TableRow>}
-              {!isLoading && filtered.length === 0 && <TableRow><TableCell colSpan={6} className="text-center py-8 text-sm text-muted-foreground">Sin facturas. Crea una o importa un CSV.</TableCell></TableRow>}
+              {isLoading && (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8 text-sm text-muted-foreground">
+                    Cargando...
+                  </TableCell>
+                </TableRow>
+              )}
+              {!isLoading && filtered.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8 text-sm text-muted-foreground">
+                    Sin facturas. Crea una o importa un CSV.
+                  </TableCell>
+                </TableRow>
+              )}
               {filtered.map((inv) => {
                 const client = clients.find((c) => c.id === inv.client_id);
                 const hasMandato = mandatesByClient.get(inv.client_id);
@@ -309,19 +483,38 @@ function InvoicesTab() {
                       <div className="flex items-center gap-2">
                         {client?.name}
                         {!hasMandato && inv.status === "pending" && (
-                          <span title="Sin mandato SEPA activo" className="text-xs text-red-600 font-bold">⚠</span>
+                          <span
+                            title="Sin mandato SEPA activo"
+                            className="text-xs text-red-600 font-bold"
+                          >
+                            ⚠
+                          </span>
                         )}
                       </div>
                     </TableCell>
                     <TableCell>{inv.due_date}</TableCell>
-                    <TableCell className="text-right font-mono tabular-nums">{inv.amount.toFixed(2)} €</TableCell>
+                    <TableCell className="text-right font-mono tabular-nums">
+                      {inv.amount.toFixed(2)} €
+                    </TableCell>
                     <TableCell>
                       <Badge variant={statusBadgeVariant(inv.status)}>
-                        {inv.status === "pending" ? "Pendiente" : inv.status === "included" ? "Remesada" : inv.status === "paid" ? "Cobrada" : inv.status}
+                        {inv.status === "pending"
+                          ? "Pendiente"
+                          : inv.status === "included"
+                            ? "Remesada"
+                            : inv.status === "paid"
+                              ? "Cobrada"
+                              : inv.status}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" onClick={() => { if (confirm("¿Eliminar factura?")) deleteMut.mutate(inv.id); }}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          if (confirm("¿Eliminar factura?")) deleteMut.mutate(inv.id);
+                        }}
+                      >
                         <Trash2 className="h-4 w-4 text-muted-foreground" />
                       </Button>
                     </TableCell>
@@ -332,7 +525,11 @@ function InvoicesTab() {
           </Table>
         </CardContent>
       </Card>
-      <p className="text-xs text-muted-foreground">CSV admite columnas: <code>client,invoice_number,amount,due_date,issue_date,concept,saas_origen</code> (también acepta nombres en español).</p>
+      <p className="text-xs text-muted-foreground">
+        CSV admite columnas:{" "}
+        <code>client,invoice_number,amount,due_date,issue_date,concept,saas_origen</code> (también
+        acepta nombres en español).
+      </p>
     </div>
   );
 }
@@ -348,7 +545,9 @@ function RemittanceTab() {
   const [creditorIban, setCreditorIban] = useState("");
   const [creditorBic, setCreditorBic] = useState("");
   const [creditorId, setCreditorId] = useState("");
-  const [collectionDate, setCollectionDate] = useState(new Date(Date.now() + 5 * 86400000).toISOString().slice(0, 10));
+  const [collectionDate, setCollectionDate] = useState(
+    new Date(Date.now() + 5 * 86400000).toISOString().slice(0, 10),
+  );
   const [issues, setIssues] = useState<string[]>([]);
 
   const { data: bankAccounts = [] } = useQuery({
@@ -389,12 +588,15 @@ function RemittanceTab() {
   const pending = invoices.filter((i) => i.status === "pending");
 
   // Load mandates for selected invoices' clients
-  const { data: mandatesByClient = new Map<string, any>() } = useQuery({
+  const { data: mandatesByClient = new Map<string, Mandate>() } = useQuery<Map<string, Mandate>>({
     queryKey: ["all-mandates"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("sepa_mandates").select("*").eq("is_active", true);
+      const { data, error } = await supabase
+        .from("sepa_mandates")
+        .select("*")
+        .eq("is_active", true);
       if (error) throw error;
-      const map = new Map<string, any>();
+      const map = new Map<string, Mandate>();
       for (const m of data ?? []) if (!map.has(m.client_id)) map.set(m.client_id, m);
       return map;
     },
@@ -403,7 +605,15 @@ function RemittanceTab() {
   const total = invoices.filter((i) => selected.has(i.id)).reduce((s, i) => s + i.amount, 0);
 
   function toggle(id: string) {
-    setSelected((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+    setSelected((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) {
+        n.delete(id);
+      } else {
+        n.add(id);
+      }
+      return n;
+    });
   }
 
   function buildInput() {
@@ -426,8 +636,13 @@ function RemittanceTab() {
     }
     const messageId = `NEXA-${Date.now()}`;
     return {
-      messageId, creditorName, creditorIban, creditorBic: creditorBic || null,
-      creditorId, collectionDate, invoices: sepaInvoices,
+      messageId,
+      creditorName,
+      creditorIban,
+      creditorBic: creditorBic || null,
+      creditorId,
+      collectionDate,
+      invoices: sepaInvoices,
     };
   }
 
@@ -436,38 +651,58 @@ function RemittanceTab() {
       if (!ws) throw new Error("Sin workspace");
       const input = buildInput();
       const found = validateRemittance(input);
-      if (found.length) { setIssues(found.map((f) => f.message)); throw new Error("Validación fallida"); }
+      if (found.length) {
+        setIssues(found.map((f) => f.message));
+        throw new Error("Validación fallida");
+      }
       setIssues([]);
       const xml = generateSepaXml(input);
-      const { data: rem, error } = await supabase.from("remittances").insert({
-        workspace_id: ws.id,
-        message_id: input.messageId,
-        creditor_name: input.creditorName,
-        creditor_iban: input.creditorIban.replace(/\s+/g, "").toUpperCase(),
-        creditor_bic: input.creditorBic,
-        creditor_id: input.creditorId,
-        collection_date: input.collectionDate,
-        total_amount: input.invoices.reduce((s, i) => s + i.amount, 0),
-        transaction_count: input.invoices.length,
-        xml_content: xml,
-        status: "generated",
-        company_bank_account_id: bankAccountId || null,
-      }).select().single();
+      const { data: rem, error } = await supabase
+        .from("remittances")
+        .insert({
+          workspace_id: ws.id,
+          message_id: input.messageId,
+          creditor_name: input.creditorName,
+          creditor_iban: input.creditorIban.replace(/\s+/g, "").toUpperCase(),
+          creditor_bic: input.creditorBic,
+          creditor_id: input.creditorId,
+          collection_date: input.collectionDate,
+          total_amount: input.invoices.reduce((s, i) => s + i.amount, 0),
+          transaction_count: input.invoices.length,
+          xml_content: xml,
+          status: "generated",
+          company_bank_account_id: bankAccountId || null,
+        })
+        .select()
+        .single();
       if (error) throw error;
-      await supabase.from("remittance_invoices").insert(input.invoices.map((i) => ({
-        remittance_id: rem.id, invoice_id: i.invoiceId, amount: i.amount,
-      })));
-      await supabase.from("invoices").update({ status: "included" }).in("id", input.invoices.map((i) => i.invoiceId));
+      await supabase.from("remittance_invoices").insert(
+        input.invoices.map((i) => ({
+          remittance_id: rem.id,
+          invoice_id: i.invoiceId,
+          amount: i.amount,
+        })),
+      );
+      await supabase
+        .from("invoices")
+        .update({ status: "included" })
+        .in(
+          "id",
+          input.invoices.map((i) => i.invoiceId),
+        );
       downloadXml(`${input.messageId}.xml`, xml);
       return rem;
     },
     onSuccess: () => {
       toast.success("Remesa generada y descargada");
-      setSelected(new Set()); setIssues([]);
+      setSelected(new Set());
+      setIssues([]);
       qc.invalidateQueries({ queryKey: ["invoices"] });
       qc.invalidateQueries({ queryKey: ["remittances"] });
     },
-    onError: (e: Error) => { if (e.message !== "Validación fallida") toast.error(e.message); },
+    onError: (e: Error) => {
+      if (e.message !== "Validación fallida") toast.error(e.message);
+    },
   });
 
   function preview() {
@@ -480,27 +715,50 @@ function RemittanceTab() {
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
       <Card className="lg:col-span-2">
-        <CardHeader><CardTitle className="text-base">Selecciona facturas a incluir</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle className="text-base">Selecciona facturas a incluir</CardTitle>
+        </CardHeader>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="w-10"></TableHead>
-                <TableHead>Número</TableHead><TableHead>Cliente</TableHead>
-                <TableHead>Mandato</TableHead><TableHead className="text-right">Importe</TableHead>
+                <TableHead>Número</TableHead>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Mandato</TableHead>
+                <TableHead className="text-right">Importe</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {pending.length === 0 && <TableRow><TableCell colSpan={5} className="text-center py-6 text-sm text-muted-foreground">Sin facturas pendientes.</TableCell></TableRow>}
+              {pending.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-6 text-sm text-muted-foreground">
+                    Sin facturas pendientes.
+                  </TableCell>
+                </TableRow>
+              )}
               {pending.map((inv) => {
                 const m = mandatesByClient.get(inv.client_id);
                 return (
                   <TableRow key={inv.id}>
-                    <TableCell><Checkbox checked={selected.has(inv.id)} onCheckedChange={() => toggle(inv.id)} /></TableCell>
+                    <TableCell>
+                      <Checkbox
+                        checked={selected.has(inv.id)}
+                        onCheckedChange={() => toggle(inv.id)}
+                      />
+                    </TableCell>
                     <TableCell className="font-mono text-xs">{inv.invoice_number}</TableCell>
                     <TableCell>{clients.find((c) => c.id === inv.client_id)?.name}</TableCell>
-                    <TableCell className="text-xs">{m ? <span className="text-foreground font-mono">{m.mandate_reference}</span> : <span className="text-destructive">sin mandato</span>}</TableCell>
-                    <TableCell className="text-right font-mono tabular-nums">{inv.amount.toFixed(2)} €</TableCell>
+                    <TableCell className="text-xs">
+                      {m ? (
+                        <span className="text-foreground font-mono">{m.mandate_reference}</span>
+                      ) : (
+                        <span className="text-destructive">sin mandato</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right font-mono tabular-nums">
+                      {inv.amount.toFixed(2)} €
+                    </TableCell>
                   </TableRow>
                 );
               })}
@@ -510,48 +768,107 @@ function RemittanceTab() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle className="text-base">Datos del acreedor</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle className="text-base">Datos del acreedor</CardTitle>
+        </CardHeader>
         <CardContent className="space-y-3">
           <div className="space-y-1.5">
             <Label>Cuenta emisora</Label>
             {bankAccounts.length === 0 ? (
-              <p className="text-xs text-muted-foreground">Sin cuentas configuradas. Añade una en Configuración → Cuentas bancarias.</p>
+              <p className="text-xs text-muted-foreground">
+                Sin cuentas configuradas. Añade una en Configuración → Cuentas bancarias.
+              </p>
             ) : (
               <Select value={bankAccountId} onValueChange={onBankChange}>
-                <SelectTrigger><SelectValue placeholder="Selecciona cuenta" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona cuenta" />
+                </SelectTrigger>
                 <SelectContent>
                   {bankAccounts.map((b) => (
-                    <SelectItem key={b.id} value={b.id}>{b.alias} — {b.iban.slice(0, 8)}…</SelectItem>
+                    <SelectItem key={b.id} value={b.id}>
+                      {b.alias} — {b.iban.slice(0, 8)}…
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             )}
           </div>
-          <div className="space-y-1.5"><Label>Nombre</Label><Input value={creditorName} onChange={(e) => setCreditorName(e.target.value)} /></div>
-          <div className="space-y-1.5"><Label>IBAN</Label><Input value={creditorIban} onChange={(e) => setCreditorIban(e.target.value)} className="font-mono" /></div>
-          <div className="space-y-1.5"><Label>BIC (opcional)</Label><Input value={creditorBic} onChange={(e) => setCreditorBic(e.target.value)} className="font-mono" /></div>
-          <div className="space-y-1.5"><Label>Identificador acreedor (Creditor ID)</Label><Input value={creditorId} onChange={(e) => setCreditorId(e.target.value)} placeholder="ESxxZZZxxxxxxxxx" /></div>
-          <div className="space-y-1.5"><Label>Fecha de cobro</Label><Input type="date" value={collectionDate} onChange={(e) => setCollectionDate(e.target.value)} /></div>
-
+          <div className="space-y-1.5">
+            <Label>Nombre</Label>
+            <Input value={creditorName} onChange={(e) => setCreditorName(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>IBAN</Label>
+            <Input
+              value={creditorIban}
+              onChange={(e) => setCreditorIban(e.target.value)}
+              className="font-mono"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>BIC (opcional)</Label>
+            <Input
+              value={creditorBic}
+              onChange={(e) => setCreditorBic(e.target.value)}
+              className="font-mono"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Identificador acreedor (Creditor ID)</Label>
+            <Input
+              value={creditorId}
+              onChange={(e) => setCreditorId(e.target.value)}
+              placeholder="ESxxZZZxxxxxxxxx"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Fecha de cobro</Label>
+            <Input
+              type="date"
+              value={collectionDate}
+              onChange={(e) => setCollectionDate(e.target.value)}
+            />
+          </div>
 
           <div className="rounded-md border bg-muted/40 p-3 text-sm">
-            <div className="flex justify-between"><span className="text-muted-foreground">Operaciones</span><span className="font-mono tabular-nums">{selected.size}</span></div>
-            <div className="flex justify-between font-medium"><span>Total</span><span className="font-mono tabular-nums">{total.toFixed(2)} €</span></div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Operaciones</span>
+              <span className="font-mono tabular-nums">{selected.size}</span>
+            </div>
+            <div className="flex justify-between font-medium">
+              <span>Total</span>
+              <span className="font-mono tabular-nums">{total.toFixed(2)} €</span>
+            </div>
           </div>
 
           {issues.length > 0 && (
             <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs">
-              <div className="mb-1 flex items-center gap-1 font-medium text-destructive"><AlertTriangle className="h-3 w-3" /> Errores de validación</div>
+              <div className="mb-1 flex items-center gap-1 font-medium text-destructive">
+                <AlertTriangle className="h-3 w-3" /> Errores de validación
+              </div>
               <ul className="list-disc pl-4 space-y-0.5 text-destructive">
-                {issues.slice(0, 8).map((m, i) => <li key={i}>{m}</li>)}
+                {issues.slice(0, 8).map((m, i) => (
+                  <li key={i}>{m}</li>
+                ))}
                 {issues.length > 8 && <li>… y {issues.length - 8} más</li>}
               </ul>
             </div>
           )}
 
           <div className="flex gap-2 pt-1">
-            <Button variant="outline" onClick={preview} disabled={selected.size === 0} className="flex-1">Validar</Button>
-            <Button onClick={() => generateMut.mutate()} disabled={selected.size === 0 || generateMut.isPending} className="flex-1">
+            <Button
+              variant="outline"
+              onClick={preview}
+              disabled={selected.size === 0}
+              className="flex-1"
+            >
+              Validar
+            </Button>
+            <Button
+              onClick={() => generateMut.mutate()}
+              disabled={selected.size === 0 || generateMut.isPending}
+              className="flex-1"
+            >
               <Send className="mr-2 h-4 w-4" /> Generar XML
             </Button>
           </div>
@@ -566,18 +883,21 @@ function HistoryTab() {
   const { data: remittances = [], isLoading } = useQuery({
     queryKey: ["remittances"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("remittances").select("*").order("created_at", { ascending: false });
+      const { data, error } = await supabase
+        .from("remittances")
+        .select("*")
+        .order("created_at", { ascending: false });
       if (error) throw error;
       return data ?? [];
     },
   });
 
-  const { data: remittanceInvoices = new Map<string, any[]>() } = useQuery({
+  const { data: remittanceInvoices = new Map<string, RemittanceInvoice[]>() } = useQuery({
     queryKey: ["remittance-invoices"],
     queryFn: async () => {
       const { data, error } = await supabase.from("remittance_invoices").select("*");
       if (error) throw error;
-      const map = new Map<string, any[]>();
+      const map = new Map<string, RemittanceInvoice[]>();
       for (const ri of data ?? []) {
         if (!map.has(ri.remittance_id)) map.set(ri.remittance_id, []);
         map.get(ri.remittance_id)!.push(ri);
@@ -608,29 +928,60 @@ function HistoryTab() {
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
       <Card className="lg:col-span-2">
-        <CardHeader><CardTitle className="text-base">Histórico de remesas</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle className="text-base">Histórico de remesas</CardTitle>
+        </CardHeader>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Message ID</TableHead><TableHead>Fecha cobro</TableHead>
+                <TableHead>Message ID</TableHead>
+                <TableHead>Fecha cobro</TableHead>
                 <TableHead className="text-right">Operaciones</TableHead>
                 <TableHead className="text-right">Importe</TableHead>
-                <TableHead>Estado</TableHead><TableHead></TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading && <TableRow><TableCell colSpan={6} className="text-center py-8 text-sm text-muted-foreground">Cargando...</TableCell></TableRow>}
-              {!isLoading && remittances.length === 0 && <TableRow><TableCell colSpan={6} className="text-center py-8 text-sm text-muted-foreground">Aún no hay remesas.</TableCell></TableRow>}
+              {isLoading && (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8 text-sm text-muted-foreground">
+                    Cargando...
+                  </TableCell>
+                </TableRow>
+              )}
+              {!isLoading && remittances.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8 text-sm text-muted-foreground">
+                    Aún no hay remesas.
+                  </TableCell>
+                </TableRow>
+              )}
               {remittances.map((r) => (
                 <TableRow key={r.id} className={selectedRemittance === r.id ? "bg-muted" : ""}>
-                  <TableCell className="font-mono text-xs cursor-pointer hover:underline" onClick={() => setSelectedRemittance(r.id)}>{r.message_id}</TableCell>
+                  <TableCell
+                    className="font-mono text-xs cursor-pointer hover:underline"
+                    onClick={() => setSelectedRemittance(r.id)}
+                  >
+                    {r.message_id}
+                  </TableCell>
                   <TableCell>{r.collection_date}</TableCell>
-                  <TableCell className="text-right font-mono tabular-nums">{r.transaction_count}</TableCell>
-                  <TableCell className="text-right font-mono tabular-nums">{Number(r.total_amount).toFixed(2)} €</TableCell>
-                  <TableCell><Badge variant="secondary">{r.status}</Badge></TableCell>
+                  <TableCell className="text-right font-mono tabular-nums">
+                    {r.transaction_count}
+                  </TableCell>
+                  <TableCell className="text-right font-mono tabular-nums">
+                    {Number(r.total_amount).toFixed(2)} €
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="secondary">{r.status}</Badge>
+                  </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="sm" onClick={() => downloadXml(`${r.message_id}.xml`, r.xml_content)}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => downloadXml(`${r.message_id}.xml`, r.xml_content)}
+                    >
                       <Download className="mr-2 h-4 w-4" /> XML
                     </Button>
                   </TableCell>
@@ -669,20 +1020,30 @@ function HistoryTab() {
             </div>
             <div>
               <div className="text-xs text-muted-foreground">Importe total</div>
-              <div className="font-mono font-medium">{Number(selected.total_amount).toFixed(2)} €</div>
+              <div className="font-mono font-medium">
+                {Number(selected.total_amount).toFixed(2)} €
+              </div>
             </div>
             <div>
               <div className="text-xs text-muted-foreground">Estado actual</div>
-              <Badge className="mt-1" variant="secondary">{selected.status}</Badge>
+              <Badge className="mt-1" variant="secondary">
+                {selected.status}
+              </Badge>
             </div>
             <Dialog open={statusOpen} onOpenChange={setStatusOpen}>
               <DialogTrigger asChild>
-                <Button className="w-full" variant="outline">Cambiar estado</Button>
+                <Button className="w-full" variant="outline">
+                  Cambiar estado
+                </Button>
               </DialogTrigger>
               <DialogContent>
-                <DialogHeader><DialogTitle>Actualizar estado de remesa</DialogTitle></DialogHeader>
+                <DialogHeader>
+                  <DialogTitle>Actualizar estado de remesa</DialogTitle>
+                </DialogHeader>
                 <Select value={newStatus} onValueChange={setNewStatus}>
-                  <SelectTrigger><SelectValue placeholder="Selecciona estado" /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona estado" />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="generated">Generada</SelectItem>
                     <SelectItem value="sent_bank">Enviada al banco</SelectItem>
@@ -691,7 +1052,10 @@ function HistoryTab() {
                   </SelectContent>
                 </Select>
                 <DialogFooter>
-                  <Button onClick={() => updateStatusMut.mutate({ id: selected.id, status: newStatus })} disabled={!newStatus || updateStatusMut.isPending}>
+                  <Button
+                    onClick={() => updateStatusMut.mutate({ id: selected.id, status: newStatus })}
+                    disabled={!newStatus || updateStatusMut.isPending}
+                  >
                     Actualizar
                   </Button>
                 </DialogFooter>

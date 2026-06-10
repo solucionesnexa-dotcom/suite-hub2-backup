@@ -18,25 +18,22 @@ function DashboardPage() {
     queryFn: async () => {
       const now = new Date();
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
-      
+
       const [clients, pending, totalAmount, monthlyRemittances] = await Promise.all([
         supabase.from("clients").select("id", { count: "exact", head: true }),
         supabase
           .from("invoices")
           .select("id", { count: "exact", head: true })
           .eq("status", "pending"),
-        supabase
-          .from("invoices")
-          .select("amount")
-          .eq("status", "pending"),
+        supabase.from("invoices").select("amount").eq("status", "pending"),
         supabase
           .from("remittances")
           .select("id", { count: "exact", head: true })
           .gte("created_at", monthStart),
       ]);
-      
+
       const totalPending = totalAmount.data?.reduce((sum, inv) => sum + Number(inv.amount), 0) ?? 0;
-      
+
       return {
         activeClients: clients.count ?? 0,
         pendingInvoices: pending.count ?? 0,
@@ -48,9 +45,24 @@ function DashboardPage() {
 
   const cards = [
     { label: "Clientes activos", value: stats?.activeClients ?? 0, icon: Users, to: "/clients" },
-    { label: "Facturas pendientes", value: stats?.pendingInvoices ?? 0, icon: AlertCircle, to: "/factu-nexa" },
-    { label: "Importe pendiente", value: `€${(stats?.totalPendingAmount ?? 0).toFixed(2)}`, icon: FileText, to: "/factu-nexa" },
-    { label: "Remesas este mes", value: stats?.monthlyRemittances ?? 0, icon: Send, to: "/factu-nexa" },
+    {
+      label: "Facturas pendientes",
+      value: stats?.pendingInvoices ?? 0,
+      icon: AlertCircle,
+      to: "/factu-nexa",
+    },
+    {
+      label: "Importe pendiente",
+      value: `€${(stats?.totalPendingAmount ?? 0).toFixed(2)}`,
+      icon: FileText,
+      to: "/factu-nexa",
+    },
+    {
+      label: "Remesas este mes",
+      value: stats?.monthlyRemittances ?? 0,
+      icon: Send,
+      to: "/factu-nexa",
+    },
   ];
 
   return (
@@ -86,9 +98,15 @@ function DashboardPage() {
             <CardTitle className="text-base">Acciones rápidas</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
-            <Button asChild variant="outline"><Link to="/clients">Nuevo cliente</Link></Button>
-            <Button asChild><Link to="/factu-nexa">Importar facturas</Link></Button>
-            <Button asChild variant="secondary"><Link to="/factu-nexa">Generar remesa SEPA</Link></Button>
+            <Button asChild variant="outline">
+              <Link to="/clients">Nuevo cliente</Link>
+            </Button>
+            <Button asChild>
+              <Link to="/factu-nexa">Importar facturas</Link>
+            </Button>
+            <Button asChild variant="secondary">
+              <Link to="/factu-nexa">Generar remesa SEPA</Link>
+            </Button>
           </CardContent>
         </Card>
       </div>

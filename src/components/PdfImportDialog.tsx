@@ -1,12 +1,32 @@
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { FileText, Loader2, Sparkles, Upload, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -63,7 +83,9 @@ export function PdfImportDialog({
 
   async function handleFiles(files: FileList | null) {
     if (!files || !files.length) return;
-    const pdfs = Array.from(files).filter((f) => f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf"));
+    const pdfs = Array.from(files).filter(
+      (f) => f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf"),
+    );
     if (!pdfs.length) {
       toast.error("Selecciona archivos PDF");
       return;
@@ -90,7 +112,9 @@ export function PdfImportDialog({
           const pdfBase64 = await fileToBase64(file);
           const data = await extractFn({ data: { filename: file.name, pdfBase64 } });
           const matched = clients.find(
-            (c) => data.client_name && c.name.trim().toLowerCase() === data.client_name.trim().toLowerCase(),
+            (c) =>
+              data.client_name &&
+              c.name.trim().toLowerCase() === data.client_name.trim().toLowerCase(),
           );
           setRows((prev) => {
             const next = [...prev];
@@ -99,7 +123,7 @@ export function PdfImportDialog({
               status: "ready",
               data,
               client_id: matched?.id ?? "",
-              new_client_name: matched ? "" : data.client_name ?? "",
+              new_client_name: matched ? "" : (data.client_name ?? ""),
               invoice_number: data.invoice_number ?? "",
               issue_date: data.issue_date ?? today(),
               due_date: data.due_date ?? data.issue_date ?? today(),
@@ -187,7 +211,9 @@ export function PdfImportDialog({
       return { inserted: inserts.length, createdClients, errors };
     },
     onSuccess: (res) => {
-      toast.success(`${res.inserted} facturas importadas${res.createdClients ? ` · ${res.createdClients} clientes nuevos` : ""}`);
+      toast.success(
+        `${res.inserted} facturas importadas${res.createdClients ? ` · ${res.createdClients} clientes nuevos` : ""}`,
+      );
       if (res.errors.length) toast.warning(`${res.errors.length} con errores`);
       qc.invalidateQueries({ queryKey: ["invoices"] });
       qc.invalidateQueries({ queryKey: ["clients-lite"] });
@@ -252,7 +278,9 @@ export function PdfImportDialog({
                       <TableCell className="align-top">
                         <div className="flex items-center gap-2 text-xs">
                           <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                          <span className="truncate" title={r.filename}>{r.filename}</span>
+                          <span className="truncate" title={r.filename}>
+                            {r.filename}
+                          </span>
                         </div>
                         {r.status === "extracting" && (
                           <div className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
@@ -276,11 +304,15 @@ export function PdfImportDialog({
                                 })
                               }
                             >
-                              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                              <SelectTrigger className="h-8 text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="__new__">+ Crear nuevo</SelectItem>
                                 {clients.map((c) => (
-                                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                                  <SelectItem key={c.id} value={c.id}>
+                                    {c.name}
+                                  </SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
@@ -368,9 +400,13 @@ export function PdfImportDialog({
 
         <DialogFooter>
           <Label className="mr-auto text-xs text-muted-foreground">
-            {rows.filter((r) => r.status === "ready").length} listas · {rows.filter((r) => r.status === "extracting").length} procesando · {rows.filter((r) => r.status === "error").length} con error
+            {rows.filter((r) => r.status === "ready").length} listas ·{" "}
+            {rows.filter((r) => r.status === "extracting").length} procesando ·{" "}
+            {rows.filter((r) => r.status === "error").length} con error
           </Label>
-          <Button variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
+          <Button variant="ghost" onClick={() => setOpen(false)}>
+            Cancelar
+          </Button>
           <Button
             onClick={() => importMut.mutate()}
             disabled={busy || importMut.isPending || !rows.some((r) => r.status === "ready")}

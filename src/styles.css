@@ -142,13 +142,21 @@
   * {
     border-color: var(--color-border);
   }
-  html, body {
+  html,
+  body {
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
-  .font-mono, code, pre, .tabular { font-family: var(--font-mono); }
-  .tabular-nums { font-variant-numeric: tabular-nums; }
+  .font-mono,
+  code,
+  pre,
+  .tabular {
+    font-family: var(--font-mono);
+  }
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
 }

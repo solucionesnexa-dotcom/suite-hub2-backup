@@ -80,15 +80,32 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Nexa Suite" },
-      { name: "description", content: "Plataforma interna de gestión y automatización para agencias." },
+      {
+        name: "description",
+        content: "Plataforma interna de gestión y automatización para agencias.",
+      },
       { name: "author", content: "Nexa Suite" },
       { property: "og:title", content: "Nexa Suite" },
-      { property: "og:description", content: "Plataforma interna de gestión y automatización para agencias." },
+      {
+        property: "og:description",
+        content: "Plataforma interna de gestión y automatización para agencias.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:title", content: "Nexa Suite" },
-      { name: "twitter:description", content: "Plataforma interna de gestión y automatización para agencias." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/bbdf48db-01e0-45e5-a6b6-027ab3bfc8ba/id-preview-e331cdf8--944b6969-4fd1-4311-9286-2ed87deb15e4.lovable.app-1781007544572.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/bbdf48db-01e0-45e5-a6b6-027ab3bfc8ba/id-preview-e331cdf8--944b6969-4fd1-4311-9286-2ed87deb15e4.lovable.app-1781007544572.png" },
+      {
+        name: "twitter:description",
+        content: "Plataforma interna de gestión y automatización para agencias.",
+      },
+      {
+        property: "og:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/bbdf48db-01e0-45e5-a6b6-027ab3bfc8ba/id-preview-e331cdf8--944b6969-4fd1-4311-9286-2ed87deb15e4.lovable.app-1781007544572.png",
+      },
+      {
+        name: "twitter:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/bbdf48db-01e0-45e5-a6b6-027ab3bfc8ba/id-preview-e331cdf8--944b6969-4fd1-4311-9286-2ed87deb15e4.lovable.app-1781007544572.png",
+      },
       { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [

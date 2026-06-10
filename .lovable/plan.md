@@ -20,6 +20,7 @@ Voy a entregar el trabajo en 3 bloques. Cada bloque cierra una funcionalidad uti
 ## Bloque 3 — Completar Prompt Maestro
 
 Tablas y migraciones nuevas:
+
 - `contactos` (cliente_id, nombre, apellidos, cargo, email, teléfono, canal_preferido, notas).
 - `company_settings` (1 por workspace).
 - `company_bank_accounts` (iban, bic, alias, activa, por_defecto).
@@ -29,6 +30,7 @@ Tablas y migraciones nuevas:
 - `remesas` y `remesa_facturas`: ya existen como `remittances` / `remittance_invoices` — añadir `company_bank_account_id`, `fecha_cobro_prevista`, `numero_recibos`, estado extendido.
 
 Pantallas:
+
 - **Dashboard**: 4 KPIs (clientes activos, facturas pendientes, importe pendiente, remesas mes).
 - **Clientes**: filtros (estado, sector, búsqueda); ficha con tabs (datos, contactos, mandatos SEPA, facturas).
 - **Digifactu**:

@@ -4,10 +4,34 @@ export function normalizeIban(iban: string): string {
 }
 
 const IBAN_LENGTHS: Record<string, number> = {
-  AD: 24, AT: 20, BE: 16, CH: 21, CY: 28, CZ: 24, DE: 22, DK: 18,
-  EE: 20, ES: 24, FI: 18, FR: 27, GB: 22, GR: 27, IE: 22, IT: 27,
-  LT: 20, LU: 20, LV: 21, MT: 31, NL: 18, NO: 15, PL: 28, PT: 25,
-  RO: 24, SE: 24, SI: 19, SK: 24,
+  AD: 24,
+  AT: 20,
+  BE: 16,
+  CH: 21,
+  CY: 28,
+  CZ: 24,
+  DE: 22,
+  DK: 18,
+  EE: 20,
+  ES: 24,
+  FI: 18,
+  FR: 27,
+  GB: 22,
+  GR: 27,
+  IE: 22,
+  IT: 27,
+  LT: 20,
+  LU: 20,
+  LV: 21,
+  MT: 31,
+  NL: 18,
+  NO: 15,
+  PL: 28,
+  PT: 25,
+  RO: 24,
+  SE: 24,
+  SI: 19,
+  SK: 24,
 };
 
 export function isValidIban(input: string): boolean {

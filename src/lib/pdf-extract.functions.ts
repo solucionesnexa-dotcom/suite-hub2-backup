@@ -13,7 +13,10 @@ const ExtractedInvoice = z.object({
   due_date: z.string().nullable().describe("Fecha de vencimiento en formato YYYY-MM-DD"),
   amount: z.number().nullable().describe("Importe total con impuestos, en euros, como número"),
   currency: z.string().nullable().describe("Código ISO de moneda, ej. EUR"),
-  client_name: z.string().nullable().describe("Nombre o razón social del CLIENTE/destinatario (no del emisor)"),
+  client_name: z
+    .string()
+    .nullable()
+    .describe("Nombre o razón social del CLIENTE/destinatario (no del emisor)"),
   client_nif: z.string().nullable().describe("NIF/CIF del cliente"),
   saas_origen: z.string().nullable().describe("Plataforma o SaaS emisor, si aparece en la factura"),
   concept: z.string().nullable().describe("Descripción breve del servicio/concepto"),

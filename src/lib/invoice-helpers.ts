@@ -27,7 +27,7 @@ export async function getClientMandateStatus(clientId: string): Promise<boolean>
     .eq("client_id", clientId)
     .eq("is_active", true)
     .maybeSingle();
-  
+
   if (error) return false;
   return !!data;
 }
@@ -35,7 +35,9 @@ export async function getClientMandateStatus(clientId: string): Promise<boolean>
 /**
  * Validate invoices have required mandate before remittance
  */
-export async function validateInvoicesForRemittance(invoiceIds: string[]): Promise<{ valid: boolean; issues: string[] }> {
+export async function validateInvoicesForRemittance(
+  invoiceIds: string[],
+): Promise<{ valid: boolean; issues: string[] }> {
   const issues: string[] = [];
 
   const { data: invoices, error: invError } = await supabase

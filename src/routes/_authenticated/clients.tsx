@@ -10,13 +10,27 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import { Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -29,8 +43,15 @@ export const Route = createFileRoute("/_authenticated/clients")({
 });
 
 type Client = {
-  id: string; name: string; tax_id: string | null; email: string | null;
-  phone: string | null; iban: string | null; created_at: string; estado?: string; sector?: string;
+  id: string;
+  name: string;
+  tax_id: string | null;
+  email: string | null;
+  phone: string | null;
+  iban: string | null;
+  created_at: string;
+  estado?: string;
+  sector?: string;
 };
 
 function ClientsPage() {
@@ -54,7 +75,9 @@ function ClientsPage() {
   });
 
   const createMut = useMutation({
-    mutationFn: async (payload: Partial<Client> & { name: string; estado?: string; sector?: string }) => {
+    mutationFn: async (
+      payload: Partial<Client> & { name: string; estado?: string; sector?: string },
+    ) => {
       if (!ws) throw new Error("Sin workspace");
       const iban = payload.iban ? payload.iban.replace(/\s+/g, "").toUpperCase() : null;
       const { error } = await supabase.from("clients").insert({
@@ -90,7 +113,11 @@ function ClientsPage() {
   });
 
   const filtered = clients.filter((c) => {
-    const matchSearch = !q ? true : (c.name + " " + (c.tax_id ?? "") + " " + (c.email ?? "")).toLowerCase().includes(q.toLowerCase());
+    const matchSearch = !q
+      ? true
+      : (c.name + " " + (c.tax_id ?? "") + " " + (c.email ?? ""))
+          .toLowerCase()
+          .includes(q.toLowerCase());
     const matchEstado = !estado ? true : c.estado === estado;
     const matchSector = !sector ? true : c.sector === sector;
     return matchSearch && matchEstado && matchSector;
@@ -123,11 +150,15 @@ function ClientsPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-2xl font-semibold tracking-tight">Clientes</h2>
-            <p className="text-sm text-muted-foreground">Pymes, clínicas y despachos que gestionas.</p>
+            <p className="text-sm text-muted-foreground">
+              Pymes, clínicas y despachos que gestionas.
+            </p>
           </div>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button><Plus className="mr-2 h-4 w-4" /> Nuevo cliente</Button>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" /> Nuevo cliente
+              </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
@@ -156,7 +187,9 @@ function ClientsPage() {
                   <div className="space-y-1.5">
                     <Label htmlFor="estado">Estado</Label>
                     <Select name="estado" defaultValue="activo">
-                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="activo">Activo</SelectItem>
                         <SelectItem value="inactivo">Inactivo</SelectItem>
@@ -171,10 +204,17 @@ function ClientsPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="iban">IBAN</Label>
-                  <Input id="iban" name="iban" placeholder="ES91 2100 0418 4502 0005 1332" className="font-mono" />
+                  <Input
+                    id="iban"
+                    name="iban"
+                    placeholder="ES91 2100 0418 4502 0005 1332"
+                    className="font-mono"
+                  />
                 </div>
                 <DialogFooter>
-                  <Button type="submit" disabled={createMut.isPending}>Guardar</Button>
+                  <Button type="submit" disabled={createMut.isPending}>
+                    Guardar
+                  </Button>
                 </DialogFooter>
               </form>
             </DialogContent>
@@ -184,10 +224,17 @@ function ClientsPage() {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar cliente..." className="pl-9" />
+            <Input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Buscar cliente..."
+              className="pl-9"
+            />
           </div>
           <Select value={estado} onValueChange={setEstado}>
-            <SelectTrigger><SelectValue placeholder="Todos los estados" /></SelectTrigger>
+            <SelectTrigger>
+              <SelectValue placeholder="Todos los estados" />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="">Todos</SelectItem>
               <SelectItem value="activo">Activo</SelectItem>
@@ -196,11 +243,15 @@ function ClientsPage() {
             </SelectContent>
           </Select>
           <Select value={sector} onValueChange={setSector}>
-            <SelectTrigger><SelectValue placeholder="Todos los sectores" /></SelectTrigger>
+            <SelectTrigger>
+              <SelectValue placeholder="Todos los sectores" />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="">Todos</SelectItem>
               {sectors.map((s) => (
-                <SelectItem key={s} value={s}>{s}</SelectItem>
+                <SelectItem key={s} value={s}>
+                  {s}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -220,26 +271,43 @@ function ClientsPage() {
             </TableHeader>
             <TableBody>
               {isLoading && (
-                <TableRow><TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-8">Cargando...</TableCell></TableRow>
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-8">
+                    Cargando...
+                  </TableCell>
+                </TableRow>
               )}
               {!isLoading && filtered.length === 0 && (
-                <TableRow><TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-8">Sin clientes.</TableCell></TableRow>
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-8">
+                    Sin clientes.
+                  </TableCell>
+                </TableRow>
               )}
               {filtered.map((c) => (
                 <TableRow key={c.id}>
                   <TableCell>
-                    <Link to="/clients/$id" params={{ id: c.id }} className="font-medium hover:underline">
+                    <Link
+                      to="/clients/$id"
+                      params={{ id: c.id }}
+                      className="font-medium hover:underline"
+                    >
                       {c.name}
                     </Link>
                   </TableCell>
                   <TableCell className="text-muted-foreground">{c.tax_id ?? "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{c.email ?? "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{c.sector ?? "—"}</TableCell>
-                  <TableCell className="font-mono text-xs">{c.iban ? formatIban(c.iban) : "—"}</TableCell>
+                  <TableCell className="font-mono text-xs">
+                    {c.iban ? formatIban(c.iban) : "—"}
+                  </TableCell>
                   <TableCell className="text-right">
                     <Button
-                      variant="ghost" size="icon"
-                      onClick={() => { if (confirm(`¿Eliminar ${c.name}?`)) deleteMut.mutate(c.id); }}
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        if (confirm(`¿Eliminar ${c.name}?`)) deleteMut.mutate(c.id);
+                      }}
                     >
                       <Trash2 className="h-4 w-4 text-muted-foreground" />
                     </Button>
