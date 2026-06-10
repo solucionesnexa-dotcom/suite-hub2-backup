@@ -42,6 +42,9 @@ export function AppHeader({ title }: { title?: string }) {
       <Separator orientation="vertical" className="h-6" />
       <h1 className="text-sm font-medium text-foreground">{title}</h1>
       <div className="ml-auto flex items-center gap-2">
+        {profile?.rol_global && (
+          <Badge variant="secondary" className="hidden sm:inline-flex">{roleLabels[profile.rol_global]}</Badge>
+        )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="gap-2 px-2">
@@ -51,6 +54,7 @@ export function AppHeader({ title }: { title?: string }) {
               <span className="hidden text-sm font-medium md:inline">{user?.email}</span>
             </Button>
           </DropdownMenuTrigger>
+
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel className="font-normal">
               <div className="flex flex-col">
