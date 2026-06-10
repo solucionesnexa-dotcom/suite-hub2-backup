@@ -18,6 +18,8 @@ import { Plus, Upload, Send, Download, Trash2, AlertTriangle } from "lucide-reac
 import { toast } from "sonner";
 import { parseCsv, parseAmount, parseDate } from "@/lib/csv";
 import { generateSepaXml, validateRemittance, downloadXml, type SepaInvoiceInput } from "@/lib/sepa";
+import { PdfImportDialog } from "@/components/PdfImportDialog";
+
 
 export const Route = createFileRoute("/_authenticated/digifactu")({
   ssr: false,
