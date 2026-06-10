@@ -13,7 +13,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
-import { Route as AuthenticatedDigifactuRouteImport } from './routes/_authenticated/digifactu'
+import { Route as AuthenticatedFactuNexaRouteImport } from './routes/_authenticated/factu-nexa'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedClientsRouteImport } from './routes/_authenticated/clients'
 import { Route as AuthenticatedClientsIdRouteImport } from './routes/_authenticated/clients.$id'
@@ -37,9 +37,9 @@ const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedDigifactuRoute = AuthenticatedDigifactuRouteImport.update({
-  id: '/digifactu',
-  path: '/digifactu',
+const AuthenticatedFactuNexaRoute = AuthenticatedFactuNexaRouteImport.update({
+  id: '/factu-nexa',
+  path: '/factu-nexa',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
@@ -63,7 +63,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/clients': typeof AuthenticatedClientsRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/digifactu': typeof AuthenticatedDigifactuRoute
+  '/factu-nexa': typeof AuthenticatedFactuNexaRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/clients/$id': typeof AuthenticatedClientsIdRoute
 }
@@ -72,7 +72,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/clients': typeof AuthenticatedClientsRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/digifactu': typeof AuthenticatedDigifactuRoute
+  '/factu-nexa': typeof AuthenticatedFactuNexaRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/clients/$id': typeof AuthenticatedClientsIdRoute
 }
@@ -83,7 +83,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/clients': typeof AuthenticatedClientsRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
-  '/_authenticated/digifactu': typeof AuthenticatedDigifactuRoute
+  '/_authenticated/factu-nexa': typeof AuthenticatedFactuNexaRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/clients/$id': typeof AuthenticatedClientsIdRoute
 }
@@ -94,7 +94,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/clients'
     | '/dashboard'
-    | '/digifactu'
+    | '/factu-nexa'
     | '/settings'
     | '/clients/$id'
   fileRoutesByTo: FileRoutesByTo
@@ -103,7 +103,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/clients'
     | '/dashboard'
-    | '/digifactu'
+    | '/factu-nexa'
     | '/settings'
     | '/clients/$id'
   id:
@@ -113,7 +113,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/clients'
     | '/_authenticated/dashboard'
-    | '/_authenticated/digifactu'
+    | '/_authenticated/factu-nexa'
     | '/_authenticated/settings'
     | '/_authenticated/clients/$id'
   fileRoutesById: FileRoutesById
@@ -154,11 +154,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/digifactu': {
-      id: '/_authenticated/digifactu'
-      path: '/digifactu'
-      fullPath: '/digifactu'
-      preLoaderRoute: typeof AuthenticatedDigifactuRouteImport
+    '/_authenticated/factu-nexa': {
+      id: '/_authenticated/factu-nexa'
+      path: '/factu-nexa'
+      fullPath: '/factu-nexa'
+      preLoaderRoute: typeof AuthenticatedFactuNexaRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/dashboard': {
@@ -199,14 +199,14 @@ const AuthenticatedClientsRouteWithChildren =
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedClientsRoute: typeof AuthenticatedClientsRouteWithChildren
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
-  AuthenticatedDigifactuRoute: typeof AuthenticatedDigifactuRoute
+  AuthenticatedFactuNexaRoute: typeof AuthenticatedFactuNexaRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedClientsRoute: AuthenticatedClientsRouteWithChildren,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
-  AuthenticatedDigifactuRoute: AuthenticatedDigifactuRoute,
+  AuthenticatedFactuNexaRoute: AuthenticatedFactuNexaRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
 }
 
@@ -221,3 +221,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
