@@ -144,7 +144,7 @@ export function PdfImportDialog({
           } else {
             const { data: newClient, error } = await supabase
               .from("clients")
-              .insert({ workspace_id: workspaceId, name: r.new_client_name.trim(), nif: r.data?.client_nif ?? null })
+              .insert({ workspace_id: workspaceId, name: r.new_client_name.trim() })
               .select("id")
               .single();
             if (error) {
