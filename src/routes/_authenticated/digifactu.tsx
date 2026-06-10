@@ -182,7 +182,9 @@ function InvoicesTab() {
         <Button variant="outline" onClick={() => fileRef.current?.click()} disabled={importMut.isPending}>
           <Upload className="mr-2 h-4 w-4" /> Importar CSV
         </Button>
+        <PdfImportDialog workspaceId={ws?.id} clients={clients} />
         <Dialog open={open} onOpenChange={setOpen}>
+
           <DialogTrigger asChild><Button><Plus className="mr-2 h-4 w-4" />Nueva factura</Button></DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>Nueva factura</DialogTitle></DialogHeader>
