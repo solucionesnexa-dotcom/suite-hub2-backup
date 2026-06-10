@@ -2,9 +2,11 @@ import { useNavigate } from "@tanstack/react-router";
 import { LogOut, User as UserIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useProfile } from "@/hooks/useProfile";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,8 +18,12 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useQueryClient } from "@tanstack/react-query";
 
+const roleLabels = { admin: "Admin", consultor: "Consultor", viewer: "Viewer" } as const;
+
 export function AppHeader({ title }: { title?: string }) {
   const { user } = useAuth();
+  const { data: profile } = useProfile();
+
   const navigate = useNavigate();
   const qc = useQueryClient();
 
@@ -36,6 +42,9 @@ export function AppHeader({ title }: { title?: string }) {
       <Separator orientation="vertical" className="h-6" />
       <h1 className="text-sm font-medium text-foreground">{title}</h1>
       <div className="ml-auto flex items-center gap-2">
+        {profile?.rol_global && (
+          <Badge variant="secondary" className="hidden sm:inline-flex">{roleLabels[profile.rol_global]}</Badge>
+        )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="gap-2 px-2">
@@ -45,6 +54,7 @@ export function AppHeader({ title }: { title?: string }) {
               <span className="hidden text-sm font-medium md:inline">{user?.email}</span>
             </Button>
           </DropdownMenuTrigger>
+
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel className="font-normal">
               <div className="flex flex-col">

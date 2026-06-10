@@ -142,24 +142,36 @@ export type Database = {
       }
       profiles: {
         Row: {
+          activo: boolean
+          apellidos: string | null
           created_at: string
           email: string
           full_name: string | null
           id: string
+          rol_global: Database["public"]["Enums"]["global_role"]
+          ultimo_acceso: string | null
           updated_at: string
         }
         Insert: {
+          activo?: boolean
+          apellidos?: string | null
           created_at?: string
           email: string
           full_name?: string | null
           id: string
+          rol_global?: Database["public"]["Enums"]["global_role"]
+          ultimo_acceso?: string | null
           updated_at?: string
         }
         Update: {
+          activo?: boolean
+          apellidos?: string | null
           created_at?: string
           email?: string
           full_name?: string | null
           id?: string
+          rol_global?: Database["public"]["Enums"]["global_role"]
+          ultimo_acceso?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -409,6 +421,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      has_global_role: {
+        Args: { _role: Database["public"]["Enums"]["global_role"] }
+        Returns: boolean
+      }
       has_workspace_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -424,6 +440,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "member"
+      global_role: "admin" | "consultor" | "viewer"
       invoice_status: "pending" | "included" | "paid" | "cancelled"
       remittance_status: "draft" | "generated" | "submitted" | "processed"
     }
@@ -554,6 +571,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "member"],
+      global_role: ["admin", "consultor", "viewer"],
       invoice_status: ["pending", "included", "paid", "cancelled"],
       remittance_status: ["draft", "generated", "submitted", "processed"],
     },

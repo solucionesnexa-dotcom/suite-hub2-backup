@@ -18,6 +18,8 @@ import { Plus, Upload, Send, Download, Trash2, AlertTriangle } from "lucide-reac
 import { toast } from "sonner";
 import { parseCsv, parseAmount, parseDate } from "@/lib/csv";
 import { generateSepaXml, validateRemittance, downloadXml, type SepaInvoiceInput } from "@/lib/sepa";
+import { PdfImportDialog } from "@/components/PdfImportDialog";
+
 
 export const Route = createFileRoute("/_authenticated/digifactu")({
   ssr: false,
@@ -180,7 +182,9 @@ function InvoicesTab() {
         <Button variant="outline" onClick={() => fileRef.current?.click()} disabled={importMut.isPending}>
           <Upload className="mr-2 h-4 w-4" /> Importar CSV
         </Button>
+        <PdfImportDialog workspaceId={ws?.id} clients={clients} />
         <Dialog open={open} onOpenChange={setOpen}>
+
           <DialogTrigger asChild><Button><Plus className="mr-2 h-4 w-4" />Nueva factura</Button></DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>Nueva factura</DialogTitle></DialogHeader>
