@@ -359,6 +359,7 @@ function RemittanceTab() {
         transaction_count: input.invoices.length,
         xml_content: xml,
         status: "generated",
+        company_bank_account_id: bankAccountId || null,
       }).select().single();
       if (error) throw error;
       await supabase.from("remittance_invoices").insert(input.invoices.map((i) => ({
