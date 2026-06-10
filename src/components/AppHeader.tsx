@@ -2,9 +2,11 @@ import { useNavigate } from "@tanstack/react-router";
 import { LogOut, User as UserIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useProfile } from "@/hooks/useProfile";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,8 +18,12 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useQueryClient } from "@tanstack/react-query";
 
+const roleLabels = { admin: "Admin", consultor: "Consultor", viewer: "Viewer" } as const;
+
 export function AppHeader({ title }: { title?: string }) {
   const { user } = useAuth();
+  const { data: profile } = useProfile();
+
   const navigate = useNavigate();
   const qc = useQueryClient();
 
