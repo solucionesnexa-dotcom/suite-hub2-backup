@@ -442,6 +442,48 @@ export type Database = {
         };
         Relationships: [];
       };
+      pipeline_notas: {
+        Row: {
+          cliente_id: string;
+          fecha: string;
+          id: string;
+          nota: string;
+          tipo: string;
+          user_id: string;
+        };
+        Insert: {
+          cliente_id: string;
+          fecha?: string;
+          id?: string;
+          nota: string;
+          tipo?: string;
+          user_id: string;
+        };
+        Update: {
+          cliente_id?: string;
+          fecha?: string;
+          id?: string;
+          nota?: string;
+          tipo?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "pipeline_notas_cliente_id_fkey";
+            columns: ["cliente_id"];
+            isOneToOne: false;
+            referencedRelation: "clients";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "pipeline_notas_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       remittance_invoices: {
         Row: {
           amount: number;

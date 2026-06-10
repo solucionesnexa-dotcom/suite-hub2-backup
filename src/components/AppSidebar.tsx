@@ -1,5 +1,12 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Users, FileSpreadsheet, Settings, Building2 } from "lucide-react";
+import {
+  Building2,
+  Columns3,
+  FileSpreadsheet,
+  LayoutDashboard,
+  Settings,
+  Users,
+} from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -20,7 +27,10 @@ const general = [
   { title: "Clientes", url: "/clients", icon: Users },
 ];
 
-const modules = [{ title: "FactuNexa", url: "/factu-nexa", icon: FileSpreadsheet }];
+const operations = [
+  { title: "FactuNexa", url: "/factu-nexa", icon: FileSpreadsheet },
+  { title: "Pipeline", url: "/pipeline", icon: Columns3 },
+];
 
 export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -64,10 +74,10 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
         <SidebarGroup>
-          <SidebarGroupLabel>Módulos</SidebarGroupLabel>
+          <SidebarGroupLabel>Operaciones</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {modules.map((it) => (
+              {operations.map((it) => (
                 <SidebarMenuItem key={it.url}>
                   <SidebarMenuButton asChild isActive={isActive(it.url)} tooltip={it.title}>
                     <Link to={it.url}>
