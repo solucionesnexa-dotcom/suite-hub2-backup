@@ -65,7 +65,29 @@ export default {
 
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
-      return await normalizeCatastrophicSsrResponse(response);
+      const normalized = await normalizeCatastrophicSsrResponse(response);
+
+      // If SSR returned a 404, try serving the SPA fallback `index.html`
+      // from the `ASSETS` binding (if available). This ensures client-side
+      // routes (handled by the router on the client) still load on the Worker.
+      if (normalized.status === 404) {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const anyEnv = env as any;
+          if (anyEnv?.ASSETS && typeof anyEnv.ASSETS.fetch === "function") {
+            const indexReq = new Request(new URL("/index.html", request.url).toString(), {
+              method: "GET",
+              headers: request.headers,
+            });
+            const indexRes = await anyEnv.ASSETS.fetch(indexReq);
+            if (indexRes && indexRes.status !== 404) return indexRes;
+          }
+        } catch (e) {
+          // ignore and fall through to returning the original 404
+        }
+      }
+
+      return normalized;
     } catch (error) {
       console.error(error);
       return new Response(renderErrorPage(), {
