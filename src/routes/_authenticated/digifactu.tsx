@@ -251,12 +251,48 @@ function RemittanceTab() {
   const { data: invoices = [] } = useInvoices();
   const { data: clients = [] } = useClients();
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bankAccountId, setBankAccountId] = useState<string>("");
   const [creditorName, setCreditorName] = useState("");
   const [creditorIban, setCreditorIban] = useState("");
   const [creditorBic, setCreditorBic] = useState("");
   const [creditorId, setCreditorId] = useState("");
   const [collectionDate, setCollectionDate] = useState(new Date(Date.now() + 5 * 86400000).toISOString().slice(0, 10));
   const [issues, setIssues] = useState<string[]>([]);
+
+  const { data: bankAccounts = [] } = useQuery({
+    queryKey: ["company-bank-accounts", ws?.id],
+    enabled: !!ws,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("company_bank_accounts")
+        .select("*")
+        .order("is_default", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  useEffect(() => {
+    if (!bankAccountId && bankAccounts.length) {
+      const def = bankAccounts.find((b) => b.is_default) ?? bankAccounts[0];
+      setBankAccountId(def.id);
+      setCreditorName(def.sepa_creditor_name);
+      setCreditorIban(def.iban);
+      setCreditorBic(def.bic ?? "");
+      setCreditorId(def.sepa_creditor_id);
+    }
+  }, [bankAccounts, bankAccountId]);
+
+  function onBankChange(id: string) {
+    setBankAccountId(id);
+    const b = bankAccounts.find((x) => x.id === id);
+    if (b) {
+      setCreditorName(b.sepa_creditor_name);
+      setCreditorIban(b.iban);
+      setCreditorBic(b.bic ?? "");
+      setCreditorId(b.sepa_creditor_id);
+    }
+  }
 
   const pending = invoices.filter((i) => i.status === "pending");
 
