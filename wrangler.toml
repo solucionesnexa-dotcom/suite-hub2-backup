@@ -7,6 +7,9 @@ compatibility_flags = ["nodejs_compat"]
 directory = "./dist/client"
 binding = "ASSETS"
 
+[vars]
+SUPABASE_URL = "https://reqhwbjguegrchiicayb.supabase.co"
+
 [[routes]]
 pattern = "nexasoluciones.cloud"
 zone_name = "nexasoluciones.cloud"
