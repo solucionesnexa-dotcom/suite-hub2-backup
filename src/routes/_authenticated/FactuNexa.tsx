@@ -170,7 +170,7 @@ function InvoicesTab() {
       const ts = Date.now();
       const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
       const path = `${ws.id}/${ts}_${safeName}`;
-      const { data, error } = await supabase.storage.from("factunexa").upload(path, file, { upsert: false });
+      const { data, error } = await supabase.storage.from("facturas").upload(path, file, { upsert: false });
       if (error) throw error;
       return { path, url: data.path };
     },
