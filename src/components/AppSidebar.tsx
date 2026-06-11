@@ -19,7 +19,7 @@ const general = [
   { title: "Clientes", url: "/clients", icon: Users },
 ];
 
-const modules = [{ title: "Digifactu", url: "/digifactu", icon: FileSpreadsheet }];
+const modules = [{ title: "FactuNexa", url: "/factunexa", icon: FileSpreadsheet }];
 
 const admin = [{ title: "Ajustes", url: "/settings", icon: Settings }];
 
