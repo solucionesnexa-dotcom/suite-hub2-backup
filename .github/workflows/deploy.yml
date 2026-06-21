@@ -9,6 +9,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     name: Build and Deploy
+
     steps:
       - uses: actions/checkout@v4
 
@@ -22,6 +23,19 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      # 🔹 Nuevo: aplicar migraciones de Supabase
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Link and push Supabase migrations
+        run: |
+          npx supabase link --project-ref reqhwbjguegrchiicayb
+          npx supabase db push --yes
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v3
