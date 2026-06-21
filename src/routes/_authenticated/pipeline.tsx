@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
+import { useCanEdit } from "@/hooks/useCanEdit";
 import { useCurrentWorkspace } from "@/hooks/useCurrentWorkspace";
 import { daysSince, db, pipelineColumns } from "@/lib/nexa";
 import { AlertCircle, CalendarClock, MessageSquarePlus } from "lucide-react";
@@ -24,6 +25,7 @@ export const Route = createFileRoute("/_authenticated/pipeline")({
 function PipelinePage() {
   const { data: ws } = useCurrentWorkspace();
   const { user } = useAuth();
+  const canEdit = useCanEdit();
   const qc = useQueryClient();
   const [selected, setSelected] = useState<any | null>(null);
 
@@ -146,7 +148,7 @@ function PipelinePage() {
               <div className="mt-6 space-y-6">
                 <div className="space-y-2">
                   <Label>Estado del pipeline</Label>
-                  <Select value={selected.status ?? "prospecto"} onValueChange={(status) => moveMut.mutate({ id: selected.id, status })}>
+                  <Select value={selected.status ?? "prospecto"} disabled={!canEdit} onValueChange={(status) => moveMut.mutate({ id: selected.id, status })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {pipelineColumns.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
@@ -165,7 +167,7 @@ function PipelinePage() {
                 >
                   <Label>Nueva nota</Label>
                   <Textarea name="nota" placeholder="Resumen de llamada, reunion o siguiente paso..." />
-                  <Button type="submit" disabled={addNoteMut.isPending}>
+                  <Button type="submit" disabled={!canEdit || addNoteMut.isPending}>
                     <MessageSquarePlus className="mr-2 h-4 w-4" /> Guardar nota
                   </Button>
                 </form>

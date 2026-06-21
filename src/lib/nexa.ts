@@ -9,6 +9,16 @@ export type ClientOption = {
   status?: string | null;
 };
 
+export type CompanySettings = {
+  legal_name?: string | null;
+  trade_name?: string | null;
+  tax_id?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  logo_url?: string | null;
+};
+
 export const pipelineColumns = [
   { value: "prospecto", label: "Prospecto" },
   { value: "diagnostico", label: "Diagnostico" },
@@ -60,7 +70,22 @@ export function downloadTextFile(filename: string, content: string, type = "text
   URL.revokeObjectURL(url);
 }
 
-export function renderOnePager(title: string, body: string) {
+export async function getCompanySettings(workspaceId: string): Promise<CompanySettings | null> {
+  const { data, error } = await db
+    .from("company_settings")
+    .select("legal_name, trade_name, tax_id, email, phone, address, logo_url")
+    .eq("workspace_id", workspaceId)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export function renderOnePager(title: string, body: string, company?: CompanySettings | null) {
+  const companyName = company?.trade_name || company?.legal_name || "Nexa Soluciones";
+  const companyMeta = [company?.tax_id, company?.email, company?.phone, company?.address]
+    .filter(Boolean)
+    .map((x) => escapeHtml(String(x)))
+    .join(" · ");
   return `<!doctype html>
 <html lang="es">
 <head>
@@ -74,9 +99,18 @@ export function renderOnePager(title: string, body: string) {
     th, td { border-bottom: 1px solid #e5e7eb; padding: 10px; text-align: left; }
     .muted { color: #64748b; }
     .total { font-size: 22px; font-weight: 700; color: #0f766e; }
+    .brand { display: flex; align-items: center; gap: 14px; border-bottom: 1px solid #e5e7eb; padding-bottom: 18px; margin-bottom: 28px; }
+    .brand img { max-height: 54px; max-width: 150px; object-fit: contain; }
   </style>
 </head>
 <body>
+  <div class="brand">
+    ${company?.logo_url ? `<img src="${escapeHtml(company.logo_url)}" alt="${escapeHtml(companyName)}" />` : ""}
+    <div>
+      <strong>${escapeHtml(companyName)}</strong>
+      <div class="muted">${companyMeta}</div>
+    </div>
+  </div>
   <h1>${escapeHtml(title)}</h1>
   <p class="muted">Nexa Suite · Documento generado para uso comercial</p>
   ${body}
@@ -100,13 +134,7 @@ export async function getCreditBalance(workspaceId: string) {
     .maybeSingle();
   if (error) throw error;
   if (data) return Number(data.balance ?? 0);
-  const { data: created, error: createError } = await db
-    .from("credit_accounts")
-    .insert({ workspace_id: workspaceId, balance: 20 })
-    .select("balance")
-    .single();
-  if (createError) throw createError;
-  return Number(created.balance ?? 0);
+  return 0;
 }
 
 export async function spendCredits(workspaceId: string, module: string, action: string, amount: number) {

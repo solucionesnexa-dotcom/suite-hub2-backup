@@ -9,8 +9,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
+import { useCanEdit } from "@/hooks/useCanEdit";
 import { useCurrentWorkspace } from "@/hooks/useCurrentWorkspace";
-import { db, downloadTextFile, escapeHtml, renderOnePager, spendCredits } from "@/lib/nexa";
+import { generateSopWithAi } from "@/lib/api/ai.functions";
+import { db, downloadTextFile, escapeHtml, getCompanySettings, renderOnePager, spendCredits } from "@/lib/nexa";
 import { Download, Save, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
@@ -23,6 +25,7 @@ export const Route = createFileRoute("/_authenticated/sop")({
 function SopPage() {
   const { data: ws } = useCurrentWorkspace();
   const { user } = useAuth();
+  const canEdit = useCanEdit();
   const qc = useQueryClient();
   const [clientId, setClientId] = useState("");
   const [titulo, setTitulo] = useState("");
@@ -80,8 +83,20 @@ function SopPage() {
   function download() {
     if (!result) return toast.error("Estructura el SOP antes");
     const steps = result.pasos.map((p: any) => `<li><strong>${p.numero}. ${escapeHtml(p.descripcion)}</strong><br/>Entrada: ${escapeHtml(p.condicion_entrada)}<br/>Herramienta: ${escapeHtml(p.herramienta)}</li>`).join("");
-    downloadTextFile(`sop-${Date.now()}.html`, renderOnePager(titulo || "SOP", `<h2>${escapeHtml(result.objetivo)}</h2><ol>${steps}</ol><p><strong>Entregable:</strong> ${escapeHtml(result.entregable)}</p>`));
+    void (async () => {
+      const company = ws ? await getCompanySettings(ws.id) : null;
+      downloadTextFile(`sop-${Date.now()}.html`, renderOnePager(titulo || "SOP", `<h2>${escapeHtml(result.objetivo)}</h2><ol>${steps}</ol><p><strong>Entregable:</strong> ${escapeHtml(result.entregable)}</p>`, company));
+    })();
   }
+
+  const aiMut = useMutation({
+    mutationFn: async () => generateSopWithAi({ data: { titulo, responsable, descripcion: raw } }),
+    onSuccess: (data) => setResult(data),
+    onError: (e: Error) => {
+      toast.error(e.message);
+      setResult(structureSop(raw, responsable));
+    },
+  });
 
   return (
     <AppShell title="SOP">
@@ -97,8 +112,8 @@ function SopPage() {
             <Input placeholder="Responsable" value={responsable} onChange={(e) => setResponsable(e.target.value)} />
             <Textarea className="min-h-[180px]" placeholder="Describe el proceso con tus palabras..." value={raw} onChange={(e) => setRaw(e.target.value)} />
             <div className="flex flex-wrap gap-2">
-              <Button onClick={() => setResult(structureSop(raw, responsable))}><Sparkles className="mr-2 h-4 w-4" /> Estructurar SOP</Button>
-              <Button variant="outline" onClick={() => saveMut.mutate()}><Save className="mr-2 h-4 w-4" /> Guardar</Button>
+              <Button onClick={() => aiMut.mutate()} disabled={!canEdit || aiMut.isPending}><Sparkles className="mr-2 h-4 w-4" /> Estructurar SOP</Button>
+              <Button variant="outline" onClick={() => saveMut.mutate()} disabled={!canEdit || saveMut.isPending}><Save className="mr-2 h-4 w-4" /> Guardar</Button>
               <Button variant="secondary" onClick={download}><Download className="mr-2 h-4 w-4" /> Descargar PDF</Button>
             </div>
           </CardContent>

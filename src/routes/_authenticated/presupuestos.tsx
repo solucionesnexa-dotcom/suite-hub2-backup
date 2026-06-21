@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,13 +10,18 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
+import { useCanEdit } from "@/hooks/useCanEdit";
 import { useCurrentWorkspace } from "@/hooks/useCurrentWorkspace";
-import { db, downloadTextFile, escapeHtml, eur, renderOnePager, serviceCatalog, spendCredits, today } from "@/lib/nexa";
+import { db, downloadTextFile, escapeHtml, eur, getCompanySettings, renderOnePager, serviceCatalog, spendCredits, today } from "@/lib/nexa";
 import { Download, Plus, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/presupuestos")({
   ssr: false,
+  validateSearch: (search: Record<string, unknown>) => ({
+    client: typeof search.client === "string" ? search.client : "",
+    note: typeof search.note === "string" ? search.note : "",
+  }),
   head: () => ({ meta: [{ title: "Presupuestos · Nexa Suite" }] }),
   component: PresupuestosPage,
 });
@@ -24,13 +29,22 @@ export const Route = createFileRoute("/_authenticated/presupuestos")({
 type Line = { descripcion: string; tipo: string; importe: number; cantidad: number };
 
 function PresupuestosPage() {
+  const searchParams = Route.useSearch();
   const { data: ws } = useCurrentWorkspace();
   const { user } = useAuth();
+  const canEdit = useCanEdit();
   const qc = useQueryClient();
   const [clientId, setClientId] = useState("");
+  const [statusFilter, setStatusFilter] = useState("todos");
+  const [search, setSearch] = useState("");
   const [discount, setDiscount] = useState(0);
   const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<Line[]>([{ descripcion: "Automatizacion basica", tipo: "servicio_unico", importe: 150, cantidad: 1 }]);
+
+  useEffect(() => {
+    if (searchParams.client) setClientId(searchParams.client);
+    if (searchParams.note) setNotes((prev) => prev || searchParams.note);
+  }, [searchParams.client, searchParams.note]);
 
   const totals = useMemo(() => {
     const subtotal = lines.reduce((sum, l) => sum + l.importe * l.cantidad, 0);
@@ -48,10 +62,12 @@ function PresupuestosPage() {
   });
 
   const { data: budgets = [] } = useQuery({
-    queryKey: ["presupuestos", ws?.id],
+    queryKey: ["presupuestos", ws?.id, statusFilter],
     enabled: !!ws,
     queryFn: async () => {
-      const { data, error } = await db.from("presupuestos").select("*, clients(name)").eq("workspace_id", ws!.id).order("fecha", { ascending: false }).limit(20);
+      let query = db.from("presupuestos").select("*, clients(name)").eq("workspace_id", ws!.id);
+      if (statusFilter !== "todos") query = query.eq("estado", statusFilter);
+      const { data, error } = await query.order("fecha", { ascending: false }).limit(20);
       if (error) throw error;
       return data ?? [];
     },
@@ -62,7 +78,14 @@ function PresupuestosPage() {
       if (!ws) throw new Error("Sin workspace");
       if (!clientId) throw new Error("Selecciona un cliente");
       const year = new Date().getFullYear();
-      const number = `PS-${year}-${String((budgets?.length ?? 0) + 1).padStart(3, "0")}`;
+      const { count, error: countError } = await db
+        .from("presupuestos")
+        .select("id", { count: "exact", head: true })
+        .eq("workspace_id", ws.id)
+        .gte("fecha", `${year}-01-01`)
+        .lte("fecha", `${year}-12-31`);
+      if (countError) throw countError;
+      const number = `PS-${year}-${String((count ?? 0) + 1).padStart(3, "0")}`;
       const { data: budget, error } = await db
         .from("presupuestos")
         .insert({
@@ -111,6 +134,7 @@ function PresupuestosPage() {
     if (!ws) return;
     try {
       await spendCredits(ws.id, "presupuestos", "Descarga PDF", 1);
+      const company = await getCompanySettings(ws.id);
       const client = clients.find((c: any) => c.id === clientId);
       const rows = lines
         .map((l) => `<tr><td>${escapeHtml(l.descripcion)}</td><td>${l.cantidad}</td><td>${eur(l.importe)}</td><td>${eur(l.importe * l.cantidad)}</td></tr>`)
@@ -118,7 +142,7 @@ function PresupuestosPage() {
       const body = `<h2>Propuesta para ${escapeHtml(client?.name ?? "cliente")}</h2>
         <table><thead><tr><th>Servicio</th><th>Cantidad</th><th>Importe</th><th>Total</th></tr></thead><tbody>${rows}</tbody></table>
         <p>Descuento: ${discount}%</p><p class="total">Total: ${eur(totals.total)}</p><p>${escapeHtml(notes)}</p>`;
-      downloadTextFile(`presupuesto-${Date.now()}.html`, renderOnePager("Propuesta comercial Nexa", body));
+      downloadTextFile(`presupuesto-${Date.now()}.html`, renderOnePager("Propuesta comercial Nexa", body, company));
       qc.invalidateQueries({ queryKey: ["credit-balance"] });
     } catch (e: any) {
       toast.error(e.message);
@@ -128,6 +152,10 @@ function PresupuestosPage() {
   function updateLine(index: number, patch: Partial<Line>) {
     setLines((prev) => prev.map((line, i) => (i === index ? { ...line, ...patch } : line)));
   }
+
+  const visibleBudgets = budgets.filter((budget: any) =>
+    `${budget.numero} ${budget.clients?.name ?? ""}`.toLowerCase().includes(search.toLowerCase()),
+  );
 
   return (
     <AppShell title="Presupuestos">
@@ -148,7 +176,7 @@ function PresupuestosPage() {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label>Lineas</Label>
-                <Button variant="outline" size="sm" onClick={() => setLines([...lines, { descripcion: "", tipo: "otro", importe: 0, cantidad: 1 }])}>
+                <Button variant="outline" size="sm" disabled={!canEdit} onClick={() => setLines([...lines, { descripcion: "", tipo: "otro", importe: 0, cantidad: 1 }])}>
                   <Plus className="mr-2 h-4 w-4" /> Linea
                 </Button>
               </div>
@@ -171,7 +199,7 @@ function PresupuestosPage() {
                   <div className="grid grid-cols-[1fr_1fr_auto] gap-2">
                     <Input type="number" value={line.importe} onChange={(e) => updateLine(index, { importe: Number(e.target.value) })} />
                     <Input type="number" value={line.cantidad} onChange={(e) => updateLine(index, { cantidad: Number(e.target.value) })} />
-                    <Button variant="ghost" size="icon" onClick={() => setLines(lines.filter((_, i) => i !== index))}><Trash2 className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" disabled={!canEdit} onClick={() => setLines(lines.filter((_, i) => i !== index))}><Trash2 className="h-4 w-4" /></Button>
                   </div>
                 </div>
               ))}
@@ -182,8 +210,8 @@ function PresupuestosPage() {
             </div>
             <div className="space-y-2"><Label>Notas cliente</Label><Textarea value={notes} onChange={(e) => setNotes(e.target.value)} /></div>
             <div className="flex flex-wrap gap-2">
-              <Button onClick={() => saveMut.mutate()} disabled={saveMut.isPending}><Save className="mr-2 h-4 w-4" /> Guardar</Button>
-              <Button variant="outline" onClick={download}><Download className="mr-2 h-4 w-4" /> Descargar PDF</Button>
+              <Button onClick={() => saveMut.mutate()} disabled={!canEdit || saveMut.isPending}><Save className="mr-2 h-4 w-4" /> Guardar</Button>
+              <Button variant="outline" onClick={download} disabled={!canEdit}><Download className="mr-2 h-4 w-4" /> Descargar PDF</Button>
             </div>
           </CardContent>
         </Card>
@@ -191,12 +219,22 @@ function PresupuestosPage() {
         <Card>
           <CardHeader><CardTitle>Listado</CardTitle></CardHeader>
           <CardContent className="space-y-3">
-            {budgets.length === 0 && <p className="text-sm text-muted-foreground">Sin presupuestos todavia.</p>}
-            {budgets.map((budget: any) => (
+            <div className="flex flex-wrap gap-2">
+              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar presupuesto..." className="max-w-xs" />
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  {["borrador", "enviado", "aceptado", "rechazado"].map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            {visibleBudgets.length === 0 && <p className="text-sm text-muted-foreground">Sin presupuestos en esta vista.</p>}
+            {visibleBudgets.map((budget: any) => (
               <div key={budget.id} className="grid gap-3 rounded-md border p-3 md:grid-cols-[1fr_140px_160px]">
                 <div><div className="font-medium">{budget.numero} · {budget.clients?.name ?? "Cliente"}</div><div className="text-sm text-muted-foreground">{budget.fecha}</div></div>
                 <div className="font-semibold">{eur(budget.total)}</div>
-                <Select value={budget.estado} onValueChange={(estado) => statusMut.mutate({ id: budget.id, estado })}>
+                <Select value={budget.estado} disabled={!canEdit} onValueChange={(estado) => statusMut.mutate({ id: budget.id, estado })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {["borrador", "enviado", "aceptado", "rechazado"].map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}

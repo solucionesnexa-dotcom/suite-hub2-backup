@@ -23,7 +23,7 @@ export type GoogleMapsLead = {
 };
 
 export const searchGoogleMapsLeads = createServerFn({ method: "POST" })
-  .inputValidator(searchSchema)
+  .validator(searchSchema)
   .handler(async ({ data }) => {
     const apiKey = getServerConfig().googleMapsApiKey;
     if (!apiKey) {

@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCurrentWorkspace } from "@/hooks/useCurrentWorkspace";
+import { useCanEdit } from "@/hooks/useCanEdit";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,6 +49,7 @@ type Client = {
 function ClientsPage() {
   const qc = useQueryClient();
   const { data: ws } = useCurrentWorkspace();
+  const canEdit = useCanEdit();
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
 
@@ -133,7 +135,7 @@ function ClientsPage() {
           </div>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button>
+              <Button disabled={!canEdit}>
                 <Plus className="mr-2 h-4 w-4" /> Nuevo cliente
               </Button>
             </DialogTrigger>
@@ -235,6 +237,7 @@ function ClientsPage() {
                     <Button
                       variant="ghost"
                       size="icon"
+                      disabled={!canEdit}
                       onClick={() => {
                         if (confirm(`¿Eliminar ${c.name}?`)) deleteMut.mutate(c.id);
                       }}

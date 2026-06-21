@@ -11,8 +11,9 @@ import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/useAuth";
+import { useCanEdit } from "@/hooks/useCanEdit";
 import { useCurrentWorkspace } from "@/hooks/useCurrentWorkspace";
-import { db, downloadTextFile, escapeHtml, renderOnePager, spendCredits } from "@/lib/nexa";
+import { db, downloadTextFile, escapeHtml, getCompanySettings, renderOnePager, spendCredits } from "@/lib/nexa";
 import { Download, FilePlus2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -51,6 +52,7 @@ const quickWinsByQuestion = [
 function DiagnosticoPage() {
   const { data: ws } = useCurrentWorkspace();
   const { user } = useAuth();
+  const canEdit = useCanEdit();
   const qc = useQueryClient();
   const [clientId, setClientId] = useState("");
   const [newClient, setNewClient] = useState({ name: "", sector: "", size: "", website: "" });
@@ -89,6 +91,7 @@ function DiagnosticoPage() {
     mutationFn: async () => {
       if (!ws) throw new Error("Sin workspace");
       await spendCredits(ws.id, "diagnostico", "Completar y descargar PDF", 3);
+      const company = await getCompanySettings(ws.id);
       let finalClientId = clientId;
       if (!finalClientId && newClient.name.trim()) {
         const { data, error } = await db
@@ -118,7 +121,7 @@ function DiagnosticoPage() {
         <p>Herramientas actuales: ${escapeHtml(tools.join(", ") || "No indicado")}</p>
         <p>Presencia digital: ${escapeHtml(presence.join(", ") || "No indicado")}</p>
         <h2>Quick wins</h2><ul>${quickWins.map((w) => `<li>${escapeHtml(w)}</li>`).join("")}</ul>`;
-      downloadTextFile(`diagnostico-${Date.now()}.html`, renderOnePager("Diagnostico expres digital", body));
+      downloadTextFile(`diagnostico-${Date.now()}.html`, renderOnePager("Diagnostico expres digital", body, company));
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["diagnosticos"] });
@@ -187,8 +190,8 @@ function DiagnosticoPage() {
                     </div>
                     <ul className="space-y-2 text-sm">{quickWins.map((w) => <li key={w} className="rounded-md border p-3">{w}</li>)}</ul>
                     <div className="flex flex-wrap gap-2">
-                      <Button onClick={() => completeMut.mutate()} disabled={completeMut.isPending}><Download className="mr-2 h-4 w-4" /> Descargar PDF</Button>
-                      <Button asChild variant="secondary"><Link to="/presupuestos"><FilePlus2 className="mr-2 h-4 w-4" /> Crear propuesta</Link></Button>
+                      <Button onClick={() => completeMut.mutate()} disabled={!canEdit || completeMut.isPending}><Download className="mr-2 h-4 w-4" /> Descargar PDF</Button>
+                      <Button asChild variant="secondary"><Link to="/presupuestos" search={{ client: clientId, note: quickWins.join("\n") }}><FilePlus2 className="mr-2 h-4 w-4" /> Crear propuesta</Link></Button>
                     </div>
                   </CardContent>
                 </Card>

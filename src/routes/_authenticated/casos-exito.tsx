@@ -10,8 +10,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
+import { useCanEdit } from "@/hooks/useCanEdit";
 import { useCurrentWorkspace } from "@/hooks/useCurrentWorkspace";
-import { db, downloadTextFile, escapeHtml, renderOnePager, spendCredits } from "@/lib/nexa";
+import { generateCaseStudyWithAi } from "@/lib/api/ai.functions";
+import { db, downloadTextFile, escapeHtml, getCompanySettings, renderOnePager, spendCredits } from "@/lib/nexa";
 import { Copy, Download, Save, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
@@ -26,6 +28,7 @@ const toolOptions = ["n8n", "Holded", "WhatsApp Business", "Telegram", "Google S
 function CasosExitoPage() {
   const { data: ws } = useCurrentWorkspace();
   const { user } = useAuth();
+  const canEdit = useCanEdit();
   const qc = useQueryClient();
   const [form, setForm] = useState({
     client_id: "",
@@ -85,7 +88,7 @@ function CasosExitoPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  function generate() {
+  function generateLocal() {
     const client = form.cliente_anonimo ? "una empresa del sector" : clients.find((c: any) => c.id === form.client_id)?.name ?? "un cliente";
     setOutputs({
       post_linkedin: `Como ${client} redujo friccion operativa con automatizacion.\n\nEl problema: ${form.problema}\n\nLa solucion: ${form.solucion}\n\nResultado: ${form.resultado_cuantificable}\n\nSi tu equipo sigue resolviendo esto a mano, podemos ayudarte a convertirlo en un flujo medible.`,
@@ -93,9 +96,32 @@ function CasosExitoPage() {
     });
   }
 
+  const generateMut = useMutation({
+    mutationFn: async () =>
+      generateCaseStudyWithAi({
+        data: {
+          cliente: clients.find((c: any) => c.id === form.client_id)?.name ?? "",
+          cliente_anonimo: form.cliente_anonimo,
+          sector: form.sector,
+          problema: form.problema,
+          solucion: form.solucion,
+          herramientas_usadas: tools,
+          resultado_cuantificable: form.resultado_cuantificable,
+        },
+      }),
+    onSuccess: (data: any) => setOutputs(data),
+    onError: (e: Error) => {
+      toast.error(e.message);
+      generateLocal();
+    },
+  });
+
   function download() {
     if (!outputs.pdf_contenido) return toast.error("Genera el contenido antes");
-    downloadTextFile(`caso-exito-${Date.now()}.html`, renderOnePager("Caso de exito", `<p>${escapeHtml(outputs.pdf_contenido).replaceAll("\n", "<br/>")}</p>`));
+    void (async () => {
+      const company = ws ? await getCompanySettings(ws.id) : null;
+      downloadTextFile(`caso-exito-${Date.now()}.html`, renderOnePager("Caso de exito", `<p>${escapeHtml(outputs.pdf_contenido).replaceAll("\n", "<br/>")}</p>`, company));
+    })();
   }
 
   return (
@@ -120,8 +146,8 @@ function CasosExitoPage() {
             </div>
             <Input placeholder="Resultado cuantificable" value={form.resultado_cuantificable} onChange={(e) => setForm({ ...form, resultado_cuantificable: e.target.value })} />
             <div className="flex flex-wrap gap-2">
-              <Button onClick={generate}><Sparkles className="mr-2 h-4 w-4" /> Generar con IA</Button>
-              <Button variant="outline" onClick={() => saveMut.mutate()}><Save className="mr-2 h-4 w-4" /> Guardar</Button>
+              <Button onClick={() => generateMut.mutate()} disabled={!canEdit || generateMut.isPending}><Sparkles className="mr-2 h-4 w-4" /> Generar con IA</Button>
+              <Button variant="outline" onClick={() => saveMut.mutate()} disabled={!canEdit || saveMut.isPending}><Save className="mr-2 h-4 w-4" /> Guardar</Button>
               <Button variant="secondary" onClick={download}><Download className="mr-2 h-4 w-4" /> PDF</Button>
             </div>
           </CardContent>

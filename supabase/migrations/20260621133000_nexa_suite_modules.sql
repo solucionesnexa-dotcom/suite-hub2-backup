@@ -34,6 +34,11 @@ ALTER TABLE public.clients
   ADD COLUMN IF NOT EXISTS website TEXT,
   ADD COLUMN IF NOT EXISTS last_contact_at TIMESTAMPTZ;
 
+DO $$ BEGIN
+  CREATE POLICY "Admins can view profiles" ON public.profiles FOR SELECT TO authenticated
+    USING (public.has_global_role('admin') OR auth.uid() = id);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
 CREATE TABLE IF NOT EXISTS public.company_settings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   workspace_id UUID NOT NULL REFERENCES public.workspaces(id) ON DELETE CASCADE UNIQUE,
@@ -67,6 +72,29 @@ CREATE TABLE IF NOT EXISTS public.credit_movements (
   created_by UUID REFERENCES auth.users(id),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+INSERT INTO public.credit_accounts (workspace_id, balance)
+SELECT id, 20 FROM public.workspaces
+ON CONFLICT (workspace_id) DO NOTHING;
+
+CREATE OR REPLACE FUNCTION public.ensure_credit_account_for_workspace()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  INSERT INTO public.credit_accounts (workspace_id, balance)
+  VALUES (NEW.id, 20)
+  ON CONFLICT (workspace_id) DO NOTHING;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_workspaces_credit_account ON public.workspaces;
+CREATE TRIGGER trg_workspaces_credit_account
+AFTER INSERT ON public.workspaces
+FOR EACH ROW EXECUTE FUNCTION public.ensure_credit_account_for_workspace();
 
 CREATE TABLE IF NOT EXISTS public.diagnosticos (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -226,6 +254,9 @@ CREATE TABLE IF NOT EXISTS public.prospector_leads (
   fuente TEXT NOT NULL DEFAULT 'manual',
   necesidad_detectada TEXT,
   score INTEGER NOT NULL DEFAULT 0 CHECK (score BETWEEN 0 AND 100),
+  oportunidad_score INTEGER NOT NULL DEFAULT 0 CHECK (oportunidad_score BETWEEN 0 AND 100),
+  oportunidad_analisis JSONB NOT NULL DEFAULT '{}'::jsonb,
+  propuesta_comercial TEXT,
   estado TEXT NOT NULL DEFAULT 'nuevo',
   notas TEXT,
   client_id UUID REFERENCES public.clients(id) ON DELETE SET NULL,

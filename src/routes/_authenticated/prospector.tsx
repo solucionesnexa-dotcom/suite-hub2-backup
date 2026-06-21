@@ -11,10 +11,11 @@ import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
+import { useCanEdit } from "@/hooks/useCanEdit";
 import { useCurrentWorkspace } from "@/hooks/useCurrentWorkspace";
 import { searchGoogleMapsLeads, type GoogleMapsLead } from "@/lib/api/prospector.functions";
 import { db } from "@/lib/nexa";
-import { Building2, ExternalLink, Filter, MapPin, Plus, Search, UserPlus } from "lucide-react";
+import { Building2, ExternalLink, Filter, Lightbulb, MapPin, Plus, Search, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/prospector")({
@@ -40,6 +41,7 @@ const sociosanitarioCategories = [
 function ProspectorPage() {
   const { data: ws } = useCurrentWorkspace();
   const { user } = useAuth();
+  const canEdit = useCanEdit();
   const qc = useQueryClient();
   const [status, setStatus] = useState("todos");
   const [query, setQuery] = useState("");
@@ -158,6 +160,27 @@ function ProspectorPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const analyzeMut = useMutation({
+    mutationFn: async (lead: any) => {
+      const analysis = analyzeOpportunity(lead);
+      const { error } = await db
+        .from("prospector_leads")
+        .update({
+          oportunidad_score: analysis.score,
+          oportunidad_analisis: analysis,
+          propuesta_comercial: analysis.propuesta,
+          estado: lead.estado === "nuevo" ? "cualificado" : lead.estado,
+        })
+        .eq("id", lead.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["prospector-leads"] });
+      toast.success("Oportunidad analizada");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const filtered = leads.filter((lead: any) => {
     const matchesStatus = status === "todos" || lead.estado === status;
     const text = `${lead.nombre_comercial} ${lead.sector ?? ""} ${lead.localidad ?? ""}`.toLowerCase();
@@ -190,7 +213,7 @@ function ProspectorPage() {
               <Field label="Zona">
                 <Input value={mapsLocation} onChange={(e) => setMapsLocation(e.target.value)} placeholder="Sevilla, Malaga, Andalucia..." />
               </Field>
-              <Button onClick={() => mapsSearchMut.mutate()} disabled={mapsSearchMut.isPending}>
+              <Button onClick={() => mapsSearchMut.mutate()} disabled={!canEdit || mapsSearchMut.isPending}>
                 <Search className="mr-2 h-4 w-4" /> Buscar empresas
               </Button>
               <p className="text-xs text-muted-foreground">
@@ -229,7 +252,7 @@ function ProspectorPage() {
                 </div>
                 <Progress value={score} />
               </div>
-              <Button onClick={() => createMut.mutate()} disabled={createMut.isPending}>
+              <Button onClick={() => createMut.mutate()} disabled={!canEdit || createMut.isPending}>
                 <Plus className="mr-2 h-4 w-4" /> Guardar lead
               </Button>
             </CardContent>
@@ -267,7 +290,7 @@ function ProspectorPage() {
                       {place.rating ? `${place.rating} · ${place.userRatingCount ?? 0}` : "Sin rating"}
                     </Badge>
                   </div>
-                  <Button variant="outline" onClick={() => importMapsMut.mutate(place)}>
+                  <Button variant="outline" disabled={!canEdit} onClick={() => importMapsMut.mutate(place)}>
                     <Plus className="mr-2 h-4 w-4" /> Importar
                   </Button>
                 </div>
@@ -301,7 +324,8 @@ function ProspectorPage() {
             <CardContent className="space-y-3">
               {filtered.length === 0 && <p className="text-sm text-muted-foreground">Sin leads en esta vista.</p>}
               {filtered.map((lead: any) => (
-                <div key={lead.id} className="grid gap-3 rounded-md border p-3 lg:grid-cols-[1fr_100px_170px_150px]">
+                <div key={lead.id} className="rounded-md border p-3">
+                  <div className="grid gap-3 lg:grid-cols-[1fr_120px_170px_150px]">
                   <div>
                     <div className="font-medium">{lead.nombre_comercial}</div>
                     <div className="text-sm text-muted-foreground">
@@ -315,11 +339,11 @@ function ProspectorPage() {
                     {lead.necesidad_detectada && <div className="mt-2 text-sm">{lead.necesidad_detectada}</div>}
                   </div>
                   <div>
-                    <Badge variant={lead.score >= 70 ? "default" : lead.score >= 40 ? "secondary" : "outline"}>
-                      {lead.score}/100
+                    <Badge variant={lead.oportunidad_score >= 70 ? "default" : lead.score >= 40 ? "secondary" : "outline"}>
+                      Oportunidad {lead.oportunidad_score || lead.score}/100
                     </Badge>
                   </div>
-                  <Select value={lead.estado} onValueChange={(estado) => updateStatusMut.mutate({ id: lead.id, estado })}>
+                  <Select value={lead.estado} disabled={!canEdit} onValueChange={(estado) => updateStatusMut.mutate({ id: lead.id, estado })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {statuses.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
@@ -327,11 +351,43 @@ function ProspectorPage() {
                   </Select>
                   <Button
                     variant="outline"
-                    disabled={lead.estado === "convertido"}
+                    disabled={!canEdit || lead.estado === "convertido"}
                     onClick={() => convertMut.mutate(lead)}
                   >
                     <UserPlus className="mr-2 h-4 w-4" /> Convertir
                   </Button>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button variant="secondary" size="sm" disabled={!canEdit} onClick={() => analyzeMut.mutate(lead)}>
+                      <Lightbulb className="mr-2 h-4 w-4" /> Analizar oportunidad
+                    </Button>
+                    {lead.propuesta_comercial && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigator.clipboard.writeText(lead.propuesta_comercial)}
+                      >
+                        Copiar propuesta
+                      </Button>
+                    )}
+                  </div>
+                  {lead.oportunidad_analisis?.resumen && (
+                    <div className="mt-3 grid gap-3 rounded-md bg-muted/40 p-3 text-sm lg:grid-cols-2">
+                      <div>
+                        <div className="font-medium">Oportunidad para Nexa</div>
+                        <p className="mt-1 text-muted-foreground">{lead.oportunidad_analisis.resumen}</p>
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {(lead.oportunidad_analisis.servicios ?? []).map((service: string) => (
+                            <Badge key={service} variant="outline">{service}</Badge>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="font-medium">Propuesta inicial</div>
+                        <p className="mt-1 whitespace-pre-line text-muted-foreground">{lead.propuesta_comercial}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </CardContent>
@@ -340,6 +396,68 @@ function ProspectorPage() {
       </div>
     </AppShell>
   );
+}
+
+function analyzeOpportunity(lead: any) {
+  const sectorText = `${lead.sector ?? ""} ${lead.necesidad_detectada ?? ""} ${lead.notas ?? ""}`.toLowerCase();
+  const isSociosanitario =
+    sectorText.includes("sociosanitario") ||
+    sectorText.includes("residencia") ||
+    sectorText.includes("mayores") ||
+    sectorText.includes("centro de dia") ||
+    sectorText.includes("ayuda a domicilio") ||
+    sectorText.includes("sad");
+
+  const servicios = isSociosanitario
+    ? [
+        "Diagnostico digital",
+        "Automatizacion de admisiones",
+        "Comunicacion con familias",
+        "SOP operativos",
+        "ROI Calculator",
+      ]
+    : ["Diagnostico digital", "Auditoria de procesos", "Automatizacion basica", "Presupuesto comercial"];
+
+  const pains = isSociosanitario
+    ? [
+        "gestion manual de solicitudes de plaza o altas",
+        "seguimiento disperso de citas, familias y documentacion",
+        "comunicaciones repetitivas por telefono o WhatsApp",
+        "procesos internos dificiles de medir entre centro, administracion y equipo asistencial",
+      ]
+    : [
+        "tareas administrativas repetitivas",
+        "seguimiento comercial poco centralizado",
+        "informacion repartida entre hojas de calculo, correo y mensajeria",
+      ];
+
+  const base = Number(lead.score ?? 0);
+  const mapsBoost = lead.fuente === "google_maps" ? 10 : 0;
+  const sectorBoost = isSociosanitario ? 20 : 5;
+  const contactBoost = lead.telefono || lead.email || lead.web ? 10 : 0;
+  const reputationBoost = Number(lead.reviews_count ?? 0) >= 20 || Number(lead.rating ?? 0) >= 4 ? 10 : 0;
+  const score = Math.min(100, Math.round(base * 0.45 + mapsBoost + sectorBoost + contactBoost + reputationBoost + 20));
+
+  const resumen = isSociosanitario
+    ? `${lead.nombre_comercial} encaja con una oportunidad sociosanitaria: entidades con residencias, centros de dia o servicios SAD suelen tener carga administrativa, coordinacion con familias y documentacion operativa recurrente.`
+    : `${lead.nombre_comercial} puede encajar con una auditoria de procesos para detectar automatizaciones rapidas y preparar una propuesta de mejora.`;
+
+  const propuesta = `Hola, equipo de ${lead.nombre_comercial}.
+
+Soy Nexa Soluciones. Ayudamos a pymes y entidades de servicios a reducir trabajo administrativo con automatizaciones sencillas, documentacion SOP y cuadros de seguimiento.
+
+Por vuestro tipo de actividad, vemos una oportunidad clara en ${pains.slice(0, 2).join(" y ")}. La propuesta inicial seria hacer un Diagnostico Digital Express para identificar 3 mejoras concretas, estimar ahorro con una calculadora ROI y, si encaja, preparar una implantacion por fases.
+
+Podemos empezar con una sesion breve de 30 minutos y devolveros un one-pager con quick wins y una propuesta cerrada.`;
+
+  return {
+    score,
+    resumen,
+    pains,
+    servicios,
+    siguiente_paso: "Contactar para diagnostico express de 30 minutos",
+    propuesta,
+  };
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {

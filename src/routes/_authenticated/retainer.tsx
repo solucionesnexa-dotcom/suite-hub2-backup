@@ -11,6 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useCurrentWorkspace } from "@/hooks/useCurrentWorkspace";
+import { useCanEdit } from "@/hooks/useCanEdit";
 import { db, eur, monthKey } from "@/lib/nexa";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -23,6 +24,7 @@ export const Route = createFileRoute("/_authenticated/retainer")({
 
 function RetainerPage() {
   const { data: ws } = useCurrentWorkspace();
+  const canEdit = useCanEdit();
   const qc = useQueryClient();
   const [clientId, setClientId] = useState("");
   const [selected, setSelected] = useState<any | null>(null);
@@ -108,7 +110,7 @@ function RetainerPage() {
                 <Input name="dia" type="number" min={1} max={28} defaultValue={1} />
               </div>
               <Textarea name="notas" placeholder="Notas internas" />
-              <Button type="submit" disabled={!clientId || createMut.isPending}><Plus className="mr-2 h-4 w-4" /> Crear</Button>
+              <Button type="submit" disabled={!canEdit || !clientId || createMut.isPending}><Plus className="mr-2 h-4 w-4" /> Crear</Button>
             </form>
           </CardContent>
         </Card>
@@ -141,7 +143,7 @@ function RetainerPage() {
                   <Input name="descripcion" placeholder="Tarea del mes" required />
                   <Input name="horas_estimadas" type="number" placeholder="Estimadas" />
                   <Input name="horas_reales" type="number" placeholder="Reales" />
-                  <Button type="submit">Anadir</Button>
+                  <Button type="submit" disabled={!canEdit}>Anadir</Button>
                 </form>
                 <div className="space-y-2">
                   {(selected.retainer_tareas ?? []).map((t: any) => <div key={t.id} className="rounded-md border p-3 text-sm">{t.descripcion} · {t.horas_reales}h · {t.estado}</div>)}

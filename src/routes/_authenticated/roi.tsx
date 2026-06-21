@@ -10,8 +10,9 @@ import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
+import { useCanEdit } from "@/hooks/useCanEdit";
 import { useCurrentWorkspace } from "@/hooks/useCurrentWorkspace";
-import { db, downloadTextFile, eur, renderOnePager, spendCredits } from "@/lib/nexa";
+import { db, downloadTextFile, eur, getCompanySettings, renderOnePager, spendCredits } from "@/lib/nexa";
 import { Download, Save } from "lucide-react";
 import { toast } from "sonner";
 
@@ -24,6 +25,7 @@ export const Route = createFileRoute("/_authenticated/roi")({
 function RoiPage() {
   const { data: ws } = useCurrentWorkspace();
   const { user } = useAuth();
+  const canEdit = useCanEdit();
   const qc = useQueryClient();
   const [form, setForm] = useState({
     nombre_calculo: "Automatizacion administrativa",
@@ -92,13 +94,14 @@ function RoiPage() {
     if (!ws) return;
     try {
       await spendCredits(ws.id, "roi", "Descarga one-pager", 2);
+      const company = await getCompanySettings(ws.id);
       const body = `<h2>${form.nombre_calculo}</h2>
         <p>${form.proceso_descripcion}</p>
         <table><tr><th>Coste anual actual</th><td>${eur(result.annual)}</td></tr>
         <tr><th>Ahorro anual estimado</th><td>${eur(result.saving)}</td></tr>
         <tr><th>Payback</th><td>${result.months.toFixed(1)} meses</td></tr>
         <tr><th>ROI ano 1</th><td>${result.roi.toFixed(0)}%</td></tr></table>`;
-      downloadTextFile(`roi-${Date.now()}.html`, renderOnePager("ROI de automatizacion", body));
+      downloadTextFile(`roi-${Date.now()}.html`, renderOnePager("ROI de automatizacion", body, company));
       qc.invalidateQueries({ queryKey: ["credit-balance"] });
     } catch (e: any) {
       toast.error(e.message);
@@ -133,9 +136,9 @@ function RoiPage() {
               <Field label="Coste implantacion"><Input type="number" value={form.coste_implantacion} onChange={(e) => setNumber("coste_implantacion", e.target.value)} /></Field>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button onClick={() => saveMut.mutate()} disabled={saveMut.isPending}><Save className="mr-2 h-4 w-4" /> Guardar calculo</Button>
-              <Button variant="outline" onClick={download}><Download className="mr-2 h-4 w-4" /> Descargar PDF</Button>
-              <Button asChild variant="secondary"><Link to="/presupuestos">Crear presupuesto</Link></Button>
+              <Button onClick={() => saveMut.mutate()} disabled={!canEdit || saveMut.isPending}><Save className="mr-2 h-4 w-4" /> Guardar calculo</Button>
+              <Button variant="outline" onClick={download} disabled={!canEdit}><Download className="mr-2 h-4 w-4" /> Descargar PDF</Button>
+              <Button asChild variant="secondary"><Link to="/presupuestos" search={{ client: form.client_id, note: form.proceso_descripcion }}>Crear presupuesto</Link></Button>
             </div>
           </CardContent>
         </Card>

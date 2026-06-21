@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCurrentWorkspace } from "@/hooks/useCurrentWorkspace";
+import { useCanEdit } from "@/hooks/useCanEdit";
 import { AppShell } from "@/components/AppShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -141,6 +142,7 @@ function useInvoices() {
 function InvoicesTab() {
   const qc = useQueryClient();
   const { data: ws } = useCurrentWorkspace();
+  const canEdit = useCanEdit();
   const { data: clients = [] } = useClients();
   const { data: invoices = [], isLoading } = useInvoices();
   const [open, setOpen] = useState(false);
@@ -311,7 +313,7 @@ function InvoicesTab() {
         <Button
           variant="outline"
           onClick={() => fileRef.current?.click()}
-          disabled={importMut.isPending}
+          disabled={!canEdit || importMut.isPending}
         >
           <Upload className="mr-2 h-4 w-4" /> Importar CSV
         </Button>
@@ -327,13 +329,14 @@ function InvoicesTab() {
         <Button
           variant="outline"
           onClick={() => pdfRef.current?.click()}
+          disabled={!canEdit || importPdfMut.isPending}
         >
           <Upload className="mr-2 h-4 w-4" /> Importar PDF
         </Button>
 
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button disabled={!canEdit}>
               <Plus className="mr-2 h-4 w-4" /> Nueva factura
             </Button>
           </DialogTrigger>
@@ -471,6 +474,7 @@ function InvoicesTab() {
                     <Button
                       variant="ghost"
                       size="icon"
+                      disabled={!canEdit}
                       onClick={() => {
                         if (confirm("¿Eliminar factura?"))
                           deleteMut.mutate(inv.id);
@@ -501,6 +505,7 @@ function InvoicesTab() {
 function RemittanceTab() {
   const qc = useQueryClient();
   const { data: ws } = useCurrentWorkspace();
+  const canEdit = useCanEdit();
   const { data: invoices = [] } = useInvoices();
   const { data: clients = [] } = useClients();
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -659,7 +664,7 @@ function RemittanceTab() {
 
           <div className="flex gap-2 pt-1">
             <Button variant="outline" onClick={preview} disabled={selected.size === 0} className="flex-1">Validar</Button>
-            <Button onClick={() => generateMut.mutate()} disabled={selected.size === 0 || generateMut.isPending} className="flex-1">
+            <Button onClick={() => generateMut.mutate()} disabled={!canEdit || selected.size === 0 || generateMut.isPending} className="flex-1">
               <Send className="mr-2 h-4 w-4" /> Generar XML
             </Button>
           </div>

@@ -20,6 +20,10 @@ export function getServerConfig() {
   return {
     nodeEnv: process.env.NODE_ENV,
     googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY,
+    openaiApiKey: process.env.OPENAI_API_KEY,
+    anthropicApiKey: process.env.ANTHROPIC_API_KEY,
+    aiProvider: process.env.AI_PROVIDER,
+    aiModel: process.env.AI_MODEL,
     // Add server-only values here, e.g.:
     //   databaseUrl: process.env.DATABASE_URL,
     //   stripeSecretKey: process.env.STRIPE_SECRET_KEY,
