@@ -93,6 +93,31 @@ CREATE TABLE IF NOT EXISTS public.credit_movements (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+ALTER TABLE public.credit_movements
+  ADD COLUMN IF NOT EXISTS module TEXT,
+  ADD COLUMN IF NOT EXISTS action TEXT,
+  ADD COLUMN IF NOT EXISTS delta INTEGER,
+  ADD COLUMN IF NOT EXISTS balance_after INTEGER,
+  ADD COLUMN IF NOT EXISTS created_by UUID REFERENCES auth.users(id),
+  ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT now();
+
+UPDATE public.credit_movements
+SET
+  module = COALESCE(module, 'creditos'),
+  action = COALESCE(action, reason, 'Ajuste'),
+  delta = COALESCE(delta, amount, 0),
+  balance_after = COALESCE(balance_after, 0)
+WHERE module IS NULL
+  OR action IS NULL
+  OR delta IS NULL
+  OR balance_after IS NULL;
+
+ALTER TABLE public.credit_movements
+  ALTER COLUMN module SET NOT NULL,
+  ALTER COLUMN action SET NOT NULL,
+  ALTER COLUMN delta SET NOT NULL,
+  ALTER COLUMN balance_after SET NOT NULL;
+
 INSERT INTO public.credit_accounts (workspace_id, balance)
 SELECT id, 20 FROM public.workspaces
 ON CONFLICT (workspace_id) DO NOTHING;
@@ -405,8 +430,13 @@ CREATE POLICY "Writers only insert prospector" ON public.prospector_leads AS RES
 CREATE POLICY "Writers only update prospector" ON public.prospector_leads AS RESTRICTIVE FOR UPDATE TO authenticated USING (public.current_user_can_write()) WITH CHECK (public.current_user_can_write());
 CREATE POLICY "Writers only delete prospector" ON public.prospector_leads AS RESTRICTIVE FOR DELETE TO authenticated USING (public.current_user_can_write());
 
+DROP TRIGGER IF EXISTS trg_company_settings_updated ON public.company_settings;
 CREATE TRIGGER trg_company_settings_updated BEFORE UPDATE ON public.company_settings FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+DROP TRIGGER IF EXISTS trg_diagnosticos_updated ON public.diagnosticos;
 CREATE TRIGGER trg_diagnosticos_updated BEFORE UPDATE ON public.diagnosticos FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+DROP TRIGGER IF EXISTS trg_presupuestos_updated ON public.presupuestos;
 CREATE TRIGGER trg_presupuestos_updated BEFORE UPDATE ON public.presupuestos FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+DROP TRIGGER IF EXISTS trg_sops_updated ON public.sops;
 CREATE TRIGGER trg_sops_updated BEFORE UPDATE ON public.sops FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+DROP TRIGGER IF EXISTS trg_prospector_leads_updated ON public.prospector_leads;
 CREATE TRIGGER trg_prospector_leads_updated BEFORE UPDATE ON public.prospector_leads FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();

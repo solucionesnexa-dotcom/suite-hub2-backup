@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { ensureCurrentUserSetup } from "@/lib/nexa";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -50,18 +51,32 @@ function AuthPage() {
       window.history.replaceState({}, document.title, "/auth");
     }
 
-    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === "SIGNED_IN" && session) {
-        navigate({ to: getNextPath(), replace: true });
+        try {
+          await ensureCurrentUserSetup();
+          navigate({ to: getNextPath(), replace: true });
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : "No se pudo preparar tu cuenta");
+        }
       }
     });
 
-    supabase.auth.getSession().then(({ data, error }) => {
+    supabase.auth.getSession().then(async ({ data, error }) => {
       if (error) {
         toast.error(error.message);
         return;
       }
-      if (data.session) navigate({ to: getNextPath(), replace: true });
+      if (data.session) {
+        try {
+          await ensureCurrentUserSetup();
+          navigate({ to: getNextPath(), replace: true });
+        } catch (setupError) {
+          toast.error(
+            setupError instanceof Error ? setupError.message : "No se pudo preparar tu cuenta",
+          );
+        }
+      }
     });
 
     return () => sub.subscription.unsubscribe();
@@ -86,7 +101,12 @@ function AuthPage() {
       return;
     }
     toast.success("Bienvenido");
-    navigate({ to: "/dashboard", replace: true });
+    try {
+      await ensureCurrentUserSetup();
+      navigate({ to: "/dashboard", replace: true });
+    } catch (setupError) {
+      toast.error(setupError instanceof Error ? setupError.message : "No se pudo preparar tu cuenta");
+    }
   }
 
   async function handleSignup(e: React.FormEvent<HTMLFormElement>) {
@@ -103,7 +123,7 @@ function AuthPage() {
       return;
     }
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email: parsed.data.email,
       password: parsed.data.password,
       options: {
@@ -116,8 +136,17 @@ function AuthPage() {
       toast.error(error.message);
       return;
     }
+    if (!data.session) {
+      toast.success("Cuenta creada. Revisa tu email para confirmar el acceso.");
+      return;
+    }
     toast.success("Cuenta creada. Revisa tu email si la confirmación está activada.");
-    navigate({ to: "/dashboard", replace: true });
+    try {
+      await ensureCurrentUserSetup();
+      navigate({ to: "/dashboard", replace: true });
+    } catch (setupError) {
+      toast.error(setupError instanceof Error ? setupError.message : "No se pudo preparar tu cuenta");
+    }
   }
 
   return (

@@ -282,3 +282,8 @@ export async function addCredits(workspaceId: string, amount: number, reason = "
   if (movementError) throw movementError;
   return next;
 }
+
+export async function ensureCurrentUserSetup() {
+  const { error } = await db.rpc("ensure_current_user_setup");
+  if (error) throw error;
+}
