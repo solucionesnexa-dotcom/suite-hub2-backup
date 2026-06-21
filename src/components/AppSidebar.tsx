@@ -1,5 +1,21 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Users, FileSpreadsheet, Settings, Building2 } from "lucide-react";
+import {
+  BadgeEuro,
+  BriefcaseBusiness,
+  Calculator,
+  ClipboardList,
+  FileSpreadsheet,
+  FileText,
+  Search,
+  LayoutDashboard,
+  LineChart,
+  Settings,
+  Sparkles,
+  Trophy,
+  Users,
+  WalletCards,
+  Building2,
+} from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -19,9 +35,36 @@ const general = [
   { title: "Clientes", url: "/clients", icon: Users },
 ];
 
-const modules = [{ title: "FactuNexa", url: "/factunexa", icon: FileSpreadsheet }];
+const sales = [
+  { title: "Prospector", url: "/prospector", icon: Search },
+  { title: "Diagnóstico", url: "/diagnostico", icon: ClipboardList },
+  { title: "Presupuestos", url: "/presupuestos", icon: FileText },
+  { title: "ROI Calculator", url: "/roi", icon: Calculator },
+  { title: "Kit Digital", url: "/kit-digital", icon: BadgeEuro },
+];
 
-const admin = [{ title: "Ajustes", url: "/settings", icon: Settings }];
+const operations = [
+  { title: "FactuNexa", url: "/factunexa", icon: FileSpreadsheet },
+  { title: "Pipeline", url: "/pipeline", icon: LineChart },
+  { title: "Retainer", url: "/retainer", icon: BriefcaseBusiness },
+];
+
+const content = [
+  { title: "SOP", url: "/sop", icon: Sparkles },
+  { title: "Casos de Éxito", url: "/casos-exito", icon: Trophy },
+];
+
+const admin = [
+  { title: "Ajustes", url: "/settings", icon: Settings },
+  { title: "Créditos", url: "/creditos", icon: WalletCards },
+];
+
+const groups = [
+  { label: "General", items: general },
+  { label: "Ventas", items: sales },
+  { label: "Operaciones", items: operations },
+  { label: "Contenido", items: content },
+];
 
 export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -45,40 +88,25 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>General</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {general.map((it) => (
-                <SidebarMenuItem key={it.url}>
-                  <SidebarMenuButton asChild isActive={isActive(it.url)} tooltip={it.title}>
-                    <Link to={it.url}>
-                      <it.icon />
-                      <span>{it.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-        <SidebarGroup>
-          <SidebarGroupLabel>Módulos</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {modules.map((it) => (
-                <SidebarMenuItem key={it.url}>
-                  <SidebarMenuButton asChild isActive={isActive(it.url)} tooltip={it.title}>
-                    <Link to={it.url}>
-                      <it.icon />
-                      <span>{it.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {groups.map((group) => (
+          <SidebarGroup key={group.label}>
+            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {group.items.map((it) => (
+                  <SidebarMenuItem key={it.url}>
+                    <SidebarMenuButton asChild isActive={isActive(it.url)} tooltip={it.title}>
+                      <Link to={it.url}>
+                        <it.icon />
+                        <span>{it.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
       <SidebarFooter className="border-t">
         <SidebarMenu>

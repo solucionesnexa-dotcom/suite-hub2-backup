@@ -12,10 +12,20 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedSopRouteImport } from './routes/_authenticated/sop'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedRoiRouteImport } from './routes/_authenticated/roi'
+import { Route as AuthenticatedRetainerRouteImport } from './routes/_authenticated/retainer'
+import { Route as AuthenticatedProspectorRouteImport } from './routes/_authenticated/prospector'
+import { Route as AuthenticatedPresupuestosRouteImport } from './routes/_authenticated/presupuestos'
+import { Route as AuthenticatedPipelineRouteImport } from './routes/_authenticated/pipeline'
+import { Route as AuthenticatedKitDigitalRouteImport } from './routes/_authenticated/kit-digital'
 import { Route as AuthenticatedFactunexaRouteImport } from './routes/_authenticated/factunexa'
+import { Route as AuthenticatedDiagnosticoRouteImport } from './routes/_authenticated/diagnostico'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedCreditosRouteImport } from './routes/_authenticated/creditos'
 import { Route as AuthenticatedClientsRouteImport } from './routes/_authenticated/clients'
+import { Route as AuthenticatedCasosExitoRouteImport } from './routes/_authenticated/casos-exito'
 import { Route as AuthenticatedClientsIdRouteImport } from './routes/_authenticated/clients.$id'
 
 const AuthRoute = AuthRouteImport.update({
@@ -32,9 +42,45 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedSopRoute = AuthenticatedSopRouteImport.update({
+  id: '/sop',
+  path: '/sop',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedRoiRoute = AuthenticatedRoiRouteImport.update({
+  id: '/roi',
+  path: '/roi',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedRetainerRoute = AuthenticatedRetainerRouteImport.update({
+  id: '/retainer',
+  path: '/retainer',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedProspectorRoute = AuthenticatedProspectorRouteImport.update({
+  id: '/prospector',
+  path: '/prospector',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedPresupuestosRoute =
+  AuthenticatedPresupuestosRouteImport.update({
+    id: '/presupuestos',
+    path: '/presupuestos',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedPipelineRoute = AuthenticatedPipelineRouteImport.update({
+  id: '/pipeline',
+  path: '/pipeline',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedKitDigitalRoute = AuthenticatedKitDigitalRouteImport.update({
+  id: '/kit-digital',
+  path: '/kit-digital',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedFactunexaRoute = AuthenticatedFactunexaRouteImport.update({
@@ -42,14 +88,30 @@ const AuthenticatedFactunexaRoute = AuthenticatedFactunexaRouteImport.update({
   path: '/factunexa',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedDiagnosticoRoute =
+  AuthenticatedDiagnosticoRouteImport.update({
+    id: '/diagnostico',
+    path: '/diagnostico',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedCreditosRoute = AuthenticatedCreditosRouteImport.update({
+  id: '/creditos',
+  path: '/creditos',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedClientsRoute = AuthenticatedClientsRouteImport.update({
   id: '/clients',
   path: '/clients',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedCasosExitoRoute = AuthenticatedCasosExitoRouteImport.update({
+  id: '/casos-exito',
+  path: '/casos-exito',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedClientsIdRoute = AuthenticatedClientsIdRouteImport.update({
@@ -61,19 +123,39 @@ const AuthenticatedClientsIdRoute = AuthenticatedClientsIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/casos-exito': typeof AuthenticatedCasosExitoRoute
   '/clients': typeof AuthenticatedClientsRouteWithChildren
+  '/creditos': typeof AuthenticatedCreditosRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/diagnostico': typeof AuthenticatedDiagnosticoRoute
   '/factunexa': typeof AuthenticatedFactunexaRoute
+  '/kit-digital': typeof AuthenticatedKitDigitalRoute
+  '/pipeline': typeof AuthenticatedPipelineRoute
+  '/presupuestos': typeof AuthenticatedPresupuestosRoute
+  '/prospector': typeof AuthenticatedProspectorRoute
+  '/retainer': typeof AuthenticatedRetainerRoute
+  '/roi': typeof AuthenticatedRoiRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/sop': typeof AuthenticatedSopRoute
   '/clients/$id': typeof AuthenticatedClientsIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/casos-exito': typeof AuthenticatedCasosExitoRoute
   '/clients': typeof AuthenticatedClientsRouteWithChildren
+  '/creditos': typeof AuthenticatedCreditosRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/diagnostico': typeof AuthenticatedDiagnosticoRoute
   '/factunexa': typeof AuthenticatedFactunexaRoute
+  '/kit-digital': typeof AuthenticatedKitDigitalRoute
+  '/pipeline': typeof AuthenticatedPipelineRoute
+  '/presupuestos': typeof AuthenticatedPresupuestosRoute
+  '/prospector': typeof AuthenticatedProspectorRoute
+  '/retainer': typeof AuthenticatedRetainerRoute
+  '/roi': typeof AuthenticatedRoiRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/sop': typeof AuthenticatedSopRoute
   '/clients/$id': typeof AuthenticatedClientsIdRoute
 }
 export interface FileRoutesById {
@@ -81,10 +163,20 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/_authenticated/casos-exito': typeof AuthenticatedCasosExitoRoute
   '/_authenticated/clients': typeof AuthenticatedClientsRouteWithChildren
+  '/_authenticated/creditos': typeof AuthenticatedCreditosRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/diagnostico': typeof AuthenticatedDiagnosticoRoute
   '/_authenticated/factunexa': typeof AuthenticatedFactunexaRoute
+  '/_authenticated/kit-digital': typeof AuthenticatedKitDigitalRoute
+  '/_authenticated/pipeline': typeof AuthenticatedPipelineRoute
+  '/_authenticated/presupuestos': typeof AuthenticatedPresupuestosRoute
+  '/_authenticated/prospector': typeof AuthenticatedProspectorRoute
+  '/_authenticated/retainer': typeof AuthenticatedRetainerRoute
+  '/_authenticated/roi': typeof AuthenticatedRoiRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/_authenticated/sop': typeof AuthenticatedSopRoute
   '/_authenticated/clients/$id': typeof AuthenticatedClientsIdRoute
 }
 export interface FileRouteTypes {
@@ -92,29 +184,59 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/casos-exito'
     | '/clients'
+    | '/creditos'
     | '/dashboard'
+    | '/diagnostico'
     | '/factunexa'
+    | '/kit-digital'
+    | '/pipeline'
+    | '/presupuestos'
+    | '/prospector'
+    | '/retainer'
+    | '/roi'
     | '/settings'
+    | '/sop'
     | '/clients/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/auth'
+    | '/casos-exito'
     | '/clients'
+    | '/creditos'
     | '/dashboard'
+    | '/diagnostico'
     | '/factunexa'
+    | '/kit-digital'
+    | '/pipeline'
+    | '/presupuestos'
+    | '/prospector'
+    | '/retainer'
+    | '/roi'
     | '/settings'
+    | '/sop'
     | '/clients/$id'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/_authenticated/casos-exito'
     | '/_authenticated/clients'
+    | '/_authenticated/creditos'
     | '/_authenticated/dashboard'
+    | '/_authenticated/diagnostico'
     | '/_authenticated/factunexa'
+    | '/_authenticated/kit-digital'
+    | '/_authenticated/pipeline'
+    | '/_authenticated/presupuestos'
+    | '/_authenticated/prospector'
+    | '/_authenticated/retainer'
+    | '/_authenticated/roi'
     | '/_authenticated/settings'
+    | '/_authenticated/sop'
     | '/_authenticated/clients/$id'
   fileRoutesById: FileRoutesById
 }
@@ -147,11 +269,60 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/sop': {
+      id: '/_authenticated/sop'
+      path: '/sop'
+      fullPath: '/sop'
+      preLoaderRoute: typeof AuthenticatedSopRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/settings': {
       id: '/_authenticated/settings'
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/roi': {
+      id: '/_authenticated/roi'
+      path: '/roi'
+      fullPath: '/roi'
+      preLoaderRoute: typeof AuthenticatedRoiRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/retainer': {
+      id: '/_authenticated/retainer'
+      path: '/retainer'
+      fullPath: '/retainer'
+      preLoaderRoute: typeof AuthenticatedRetainerRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/prospector': {
+      id: '/_authenticated/prospector'
+      path: '/prospector'
+      fullPath: '/prospector'
+      preLoaderRoute: typeof AuthenticatedProspectorRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/presupuestos': {
+      id: '/_authenticated/presupuestos'
+      path: '/presupuestos'
+      fullPath: '/presupuestos'
+      preLoaderRoute: typeof AuthenticatedPresupuestosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/pipeline': {
+      id: '/_authenticated/pipeline'
+      path: '/pipeline'
+      fullPath: '/pipeline'
+      preLoaderRoute: typeof AuthenticatedPipelineRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/kit-digital': {
+      id: '/_authenticated/kit-digital'
+      path: '/kit-digital'
+      fullPath: '/kit-digital'
+      preLoaderRoute: typeof AuthenticatedKitDigitalRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/factunexa': {
@@ -161,6 +332,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedFactunexaRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/diagnostico': {
+      id: '/_authenticated/diagnostico'
+      path: '/diagnostico'
+      fullPath: '/diagnostico'
+      preLoaderRoute: typeof AuthenticatedDiagnosticoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
       path: '/dashboard'
@@ -168,11 +346,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/creditos': {
+      id: '/_authenticated/creditos'
+      path: '/creditos'
+      fullPath: '/creditos'
+      preLoaderRoute: typeof AuthenticatedCreditosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/clients': {
       id: '/_authenticated/clients'
       path: '/clients'
       fullPath: '/clients'
       preLoaderRoute: typeof AuthenticatedClientsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/casos-exito': {
+      id: '/_authenticated/casos-exito'
+      path: '/casos-exito'
+      fullPath: '/casos-exito'
+      preLoaderRoute: typeof AuthenticatedCasosExitoRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/clients/$id': {
@@ -197,17 +389,37 @@ const AuthenticatedClientsRouteWithChildren =
   AuthenticatedClientsRoute._addFileChildren(AuthenticatedClientsRouteChildren)
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedCasosExitoRoute: typeof AuthenticatedCasosExitoRoute
   AuthenticatedClientsRoute: typeof AuthenticatedClientsRouteWithChildren
+  AuthenticatedCreditosRoute: typeof AuthenticatedCreditosRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedDiagnosticoRoute: typeof AuthenticatedDiagnosticoRoute
   AuthenticatedFactunexaRoute: typeof AuthenticatedFactunexaRoute
+  AuthenticatedKitDigitalRoute: typeof AuthenticatedKitDigitalRoute
+  AuthenticatedPipelineRoute: typeof AuthenticatedPipelineRoute
+  AuthenticatedPresupuestosRoute: typeof AuthenticatedPresupuestosRoute
+  AuthenticatedProspectorRoute: typeof AuthenticatedProspectorRoute
+  AuthenticatedRetainerRoute: typeof AuthenticatedRetainerRoute
+  AuthenticatedRoiRoute: typeof AuthenticatedRoiRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedSopRoute: typeof AuthenticatedSopRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedCasosExitoRoute: AuthenticatedCasosExitoRoute,
   AuthenticatedClientsRoute: AuthenticatedClientsRouteWithChildren,
+  AuthenticatedCreditosRoute: AuthenticatedCreditosRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedDiagnosticoRoute: AuthenticatedDiagnosticoRoute,
   AuthenticatedFactunexaRoute: AuthenticatedFactunexaRoute,
+  AuthenticatedKitDigitalRoute: AuthenticatedKitDigitalRoute,
+  AuthenticatedPipelineRoute: AuthenticatedPipelineRoute,
+  AuthenticatedPresupuestosRoute: AuthenticatedPresupuestosRoute,
+  AuthenticatedProspectorRoute: AuthenticatedProspectorRoute,
+  AuthenticatedRetainerRoute: AuthenticatedRetainerRoute,
+  AuthenticatedRoiRoute: AuthenticatedRoiRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedSopRoute: AuthenticatedSopRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

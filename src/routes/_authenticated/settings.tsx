@@ -1,11 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useCurrentWorkspace } from "@/hooks/useCurrentWorkspace";
 import { AppShell } from "@/components/AppShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { db } from "@/lib/nexa";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   ssr: false,
@@ -16,6 +22,7 @@ export const Route = createFileRoute("/_authenticated/settings")({
 function SettingsPage() {
   const { user } = useAuth();
   const { data: ws } = useCurrentWorkspace();
+  const qc = useQueryClient();
 
   const { data: role } = useQuery({
     queryKey: ["my-role", ws?.id],
@@ -30,6 +37,44 @@ function SettingsPage() {
       if (error) throw error;
       return data?.role ?? null;
     },
+  });
+
+  const { data: settings } = useQuery({
+    queryKey: ["company-settings", ws?.id],
+    enabled: !!ws,
+    queryFn: async () => {
+      const { data, error } = await db
+        .from("company_settings")
+        .select("*")
+        .eq("workspace_id", ws!.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const saveSettingsMut = useMutation({
+    mutationFn: async (fd: FormData) => {
+      if (!ws) throw new Error("Sin workspace");
+      const payload = {
+        workspace_id: ws.id,
+        legal_name: String(fd.get("legal_name") ?? "") || null,
+        trade_name: String(fd.get("trade_name") ?? "") || null,
+        tax_id: String(fd.get("tax_id") ?? "") || null,
+        email: String(fd.get("email") ?? "") || null,
+        phone: String(fd.get("phone") ?? "") || null,
+        address: String(fd.get("address") ?? "") || null,
+        ai_provider: String(fd.get("ai_provider") ?? "") || null,
+        ai_api_key: String(fd.get("ai_api_key") ?? "") || null,
+      };
+      const { error } = await db.from("company_settings").upsert(payload, { onConflict: "workspace_id" });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["company-settings"] });
+      toast.success("Configuracion guardada");
+    },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   return (
@@ -67,7 +112,56 @@ function SettingsPage() {
             </div>
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Empresa e IA</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form
+              className="space-y-4"
+              onSubmit={(e) => {
+                e.preventDefault();
+                saveSettingsMut.mutate(new FormData(e.currentTarget));
+              }}
+            >
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Razon social" name="legal_name" defaultValue={settings?.legal_name} />
+                <Field label="Nombre comercial" name="trade_name" defaultValue={settings?.trade_name} />
+                <Field label="NIF" name="tax_id" defaultValue={settings?.tax_id} />
+                <Field label="Email" name="email" defaultValue={settings?.email} />
+                <Field label="Telefono" name="phone" defaultValue={settings?.phone} />
+                <Field label="Direccion" name="address" defaultValue={settings?.address} />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Proveedor IA</Label>
+                  <Select name="ai_provider" defaultValue={settings?.ai_provider ?? "openai"}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="openai">OpenAI</SelectItem>
+                      <SelectItem value="anthropic">Anthropic</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>API key</Label>
+                  <Input name="ai_api_key" type="password" defaultValue={settings?.ai_api_key ?? ""} placeholder="sk-..." />
+                </div>
+              </div>
+              <Button type="submit" disabled={saveSettingsMut.isPending}>Guardar configuracion</Button>
+            </form>
+          </CardContent>
+        </Card>
       </div>
     </AppShell>
+  );
+}
+
+function Field({ label, name, defaultValue }: { label: string; name: string; defaultValue?: string | null }) {
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <Input name={name} defaultValue={defaultValue ?? ""} />
+    </div>
   );
 }

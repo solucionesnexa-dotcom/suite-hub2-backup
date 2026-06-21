@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
-import { LogOut, User as UserIcon } from "lucide-react";
+import { LogOut, User as UserIcon, WalletCards } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
@@ -17,12 +17,21 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
+import { useCurrentWorkspace } from "@/hooks/useCurrentWorkspace";
+import { getCreditBalance } from "@/lib/nexa";
 
 const roleLabels = { admin: "Admin", consultor: "Consultor", viewer: "Viewer" } as const;
 
 export function AppHeader({ title }: { title?: string }) {
   const { user } = useAuth();
   const { data: profile } = useProfile();
+  const { data: ws } = useCurrentWorkspace();
+  const { data: credits } = useQuery({
+    queryKey: ["credit-balance", ws?.id],
+    enabled: !!ws,
+    queryFn: () => getCreditBalance(ws!.id),
+  });
 
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -42,6 +51,12 @@ export function AppHeader({ title }: { title?: string }) {
       <Separator orientation="vertical" className="h-6" />
       <h1 className="text-sm font-medium text-foreground">{title}</h1>
       <div className="ml-auto flex items-center gap-2">
+        {typeof credits === "number" && (
+          <Badge variant={credits < 5 ? "destructive" : "secondary"} className="gap-1">
+            <WalletCards className="h-3 w-3" />
+            {credits}
+          </Badge>
+        )}
         {profile?.rol_global && (
           <Badge variant="secondary" className="hidden sm:inline-flex">
             {roleLabels[profile.rol_global]}
