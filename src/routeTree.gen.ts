@@ -13,7 +13,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
-import { Route as AuthenticatedDigifactuRouteImport } from './routes/_authenticated/factunexa.tsx'
+import { Route as AuthenticatedFactunexaRouteImport } from './routes/_authenticated/factunexa'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedClientsRouteImport } from './routes/_authenticated/clients'
 import { Route as AuthenticatedClientsIdRouteImport } from './routes/_authenticated/clients.$id'
@@ -37,9 +37,9 @@ const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedDigifactuRoute = AuthenticatedDigifactuRouteImport.update({
-  id: '/digifactu',
-  path: '/digifactu',
+const AuthenticatedFactunexaRoute = AuthenticatedFactunexaRouteImport.update({
+  id: '/factunexa',
+  path: '/factunexa',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
@@ -63,7 +63,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/clients': typeof AuthenticatedClientsRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/digifactu': typeof AuthenticatedDigifactuRoute
+  '/factunexa': typeof AuthenticatedFactunexaRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/clients/$id': typeof AuthenticatedClientsIdRoute
 }
@@ -72,7 +72,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/clients': typeof AuthenticatedClientsRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/digifactu': typeof AuthenticatedDigifactuRoute
+  '/factunexa': typeof AuthenticatedFactunexaRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/clients/$id': typeof AuthenticatedClientsIdRoute
 }
@@ -83,7 +83,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/clients': typeof AuthenticatedClientsRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
-  '/_authenticated/digifactu': typeof AuthenticatedDigifactuRoute
+  '/_authenticated/factunexa': typeof AuthenticatedFactunexaRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/clients/$id': typeof AuthenticatedClientsIdRoute
 }
@@ -94,7 +94,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/clients'
     | '/dashboard'
-    | '/digifactu'
+    | '/factunexa'
     | '/settings'
     | '/clients/$id'
   fileRoutesByTo: FileRoutesByTo
@@ -103,7 +103,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/clients'
     | '/dashboard'
-    | '/digifactu'
+    | '/factunexa'
     | '/settings'
     | '/clients/$id'
   id:
@@ -113,7 +113,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/clients'
     | '/_authenticated/dashboard'
-    | '/_authenticated/digifactu'
+    | '/_authenticated/factunexa'
     | '/_authenticated/settings'
     | '/_authenticated/clients/$id'
   fileRoutesById: FileRoutesById
@@ -154,11 +154,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/digifactu': {
-      id: '/_authenticated/digifactu'
-      path: '/digifactu'
-      fullPath: '/digifactu'
-      preLoaderRoute: typeof AuthenticatedDigifactuRouteImport
+    '/_authenticated/factunexa': {
+      id: '/_authenticated/factunexa'
+      path: '/factunexa'
+      fullPath: '/factunexa'
+      preLoaderRoute: typeof AuthenticatedFactunexaRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/dashboard': {
@@ -199,14 +199,14 @@ const AuthenticatedClientsRouteWithChildren =
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedClientsRoute: typeof AuthenticatedClientsRouteWithChildren
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
-  AuthenticatedDigifactuRoute: typeof AuthenticatedDigifactuRoute
+  AuthenticatedFactunexaRoute: typeof AuthenticatedFactunexaRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedClientsRoute: AuthenticatedClientsRouteWithChildren,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
-  AuthenticatedDigifactuRoute: AuthenticatedDigifactuRoute,
+  AuthenticatedFactunexaRoute: AuthenticatedFactunexaRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
 }
 

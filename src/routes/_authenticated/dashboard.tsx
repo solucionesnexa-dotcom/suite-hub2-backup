@@ -36,14 +36,14 @@ function DashboardPage() {
 
   const cards = [
     { label: "Clientes", value: stats?.clients ?? 0, icon: Users, to: "/clients" },
-    { label: "Facturas", value: stats?.invoices ?? 0, icon: FileText, to: "/digifactu" },
+    { label: "Facturas", value: stats?.invoices ?? 0, icon: FileText, to: "/factunexa" },
     {
       label: "Pendientes de remesar",
       value: stats?.pending ?? 0,
       icon: AlertCircle,
-      to: "/digifactu",
+      to: "/factunexa",
     },
-    { label: "Remesas generadas", value: stats?.remittances ?? 0, icon: Send, to: "/digifactu" },
+    { label: "Remesas generadas", value: stats?.remittances ?? 0, icon: Send, to: "/factunexa" },
   ];
 
   return (
@@ -83,10 +83,10 @@ function DashboardPage() {
               <Link to="/clients">Nuevo cliente</Link>
             </Button>
             <Button asChild>
-              <Link to="/digifactu">Importar facturas</Link>
+              <Link to="/factunexa">Importar facturas</Link>
             </Button>
             <Button asChild variant="secondary">
-              <Link to="/digifactu">Generar remesa SEPA</Link>
+              <Link to="/factunexa">Generar remesa SEPA</Link>
             </Button>
           </CardContent>
         </Card>
