@@ -73,6 +73,7 @@ export type Database = {
           invoice_number: string;
           issue_date: string;
           mandate_id: string | null;
+          pdf_path: string | null;
           source: string | null;
           status: Database["public"]["Enums"]["invoice_status"];
           updated_at: string;
@@ -89,6 +90,7 @@ export type Database = {
           invoice_number: string;
           issue_date?: string;
           mandate_id?: string | null;
+          pdf_path?: string | null;
           source?: string | null;
           status?: Database["public"]["Enums"]["invoice_status"];
           updated_at?: string;
@@ -105,6 +107,7 @@ export type Database = {
           invoice_number?: string;
           issue_date?: string;
           mandate_id?: string | null;
+          pdf_path?: string | null;
           source?: string | null;
           status?: Database["public"]["Enums"]["invoice_status"];
           updated_at?: string;

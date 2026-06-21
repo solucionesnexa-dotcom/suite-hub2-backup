@@ -35,14 +35,7 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import {
-  Plus,
-  Upload,
-  Send,
-  Download,
-  Trash2,
-  AlertTriangle,
-} from "lucide-react";
+import { Plus, Upload, Send, Download, Trash2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { parseCsv, parseAmount, parseDate } from "@/lib/csv";
 import {
@@ -51,6 +44,7 @@ import {
   downloadXml,
   type SepaInvoiceInput,
 } from "@/lib/sepa";
+import type { Tables } from "@/integrations/supabase/types";
 
 export const Route = createFileRoute("/_authenticated/factunexa")({
   ssr: false,
@@ -68,6 +62,7 @@ type Invoice = {
   amount: number;
   currency: string;
   concept: string | null;
+  pdf_path: string | null;
   status: string;
 };
 
@@ -77,6 +72,7 @@ type ClientLite = {
   iban: string | null;
   bic: string | null;
 };
+type SepaMandate = Tables<"sepa_mandates">;
 
 function FactuNexaPage() {
   return (
@@ -130,7 +126,7 @@ function useInvoices() {
       const { data, error } = await supabase
         .from("invoices")
         .select(
-          "id, client_id, mandate_id, invoice_number, issue_date, due_date, amount, currency, concept, status",
+          "id, client_id, mandate_id, invoice_number, issue_date, due_date, amount, currency, concept, pdf_path, status",
         )
         .order("due_date", { ascending: false });
       if (error) throw error;
@@ -146,12 +142,14 @@ function InvoicesTab() {
   const { data: clients = [] } = useClients();
   const { data: invoices = [], isLoading } = useInvoices();
   const [open, setOpen] = useState(false);
+  const [pdfOpen, setPdfOpen] = useState(false);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const pdfRef = useRef<HTMLInputElement>(null);
 
   const createMut = useMutation({
     mutationFn: async (
-      payload: Omit<Invoice, "id" | "currency" | "status"> & {
+      payload: Omit<Invoice, "id" | "currency" | "pdf_path" | "status"> & {
         status?: string;
       },
     ) => {
@@ -209,9 +207,7 @@ function InvoicesTab() {
         const clientKey = (r.client || r.cliente || r.client_name || "").toLowerCase();
         const client_id = byName.get(clientKey);
         if (!client_id) {
-          errors.push(
-            `Fila ${i + 2}: cliente "${r.client || r.cliente}" no encontrado`,
-          );
+          errors.push(`Fila ${i + 2}: cliente "${r.client || r.cliente}" no encontrado`);
           continue;
         }
 
@@ -221,18 +217,15 @@ function InvoicesTab() {
           continue;
         }
 
-        const invoice_number =
-          r.invoice_number || r.numero || r.number || r.factura || "";
+        const invoice_number = r.invoice_number || r.numero || r.number || r.factura || "";
         if (!invoice_number) {
           errors.push(`Fila ${i + 2}: falta número`);
           continue;
         }
 
         const due_date =
-          parseDate(r.due_date || r.vencimiento || "") ||
-          new Date().toISOString().slice(0, 10);
-        const issue_date =
-          parseDate(r.issue_date || r.fecha || "") || due_date;
+          parseDate(r.due_date || r.vencimiento || "") || new Date().toISOString().slice(0, 10);
+        const issue_date = parseDate(r.issue_date || r.fecha || "") || due_date;
 
         toInsert.push({
           workspace_id: ws.id,
@@ -247,8 +240,7 @@ function InvoicesTab() {
         });
       }
 
-      if (!toInsert.length)
-        throw new Error(errors[0] || "No se pudo importar ninguna fila");
+      if (!toInsert.length) throw new Error(errors[0] || "No se pudo importar ninguna fila");
 
       const { error } = await supabase.from("invoices").insert(toInsert);
       if (error) throw error;
@@ -257,16 +249,24 @@ function InvoicesTab() {
     },
     onSuccess: (res) => {
       toast.success(`${res.inserted} facturas importadas`);
-      if (res.errors.length)
-        toast.warning(`${res.errors.length} filas omitidas`);
+      if (res.errors.length) toast.warning(`${res.errors.length} filas omitidas`);
       qc.invalidateQueries({ queryKey: ["invoices"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const importPdfMut = useMutation({
-    mutationFn: async (file: File) => {
+    mutationFn: async (payload: {
+      file: File;
+      client_id: string;
+      invoice_number: string;
+      amount: number;
+      issue_date: string;
+      due_date: string;
+      concept: string | null;
+    }) => {
       if (!ws) throw new Error("Sin workspace");
+      const { file } = payload;
       if (file.type !== "application/pdf") {
         throw new Error("Solo se admiten archivos PDF");
       }
@@ -279,12 +279,10 @@ function InvoicesTab() {
         .replace(/^-+|-+$/g, "")
         .slice(0, 80);
       const path = `${ws.id}/${Date.now()}-${safeName || "factura"}.pdf`;
-      const { error } = await supabase.storage
-        .from("facturas")
-        .upload(path, file, {
-          contentType: "application/pdf",
-          upsert: false,
-        });
+      const { error } = await supabase.storage.from("facturas").upload(path, file, {
+        contentType: "application/pdf",
+        upsert: false,
+      });
 
       if (error) {
         throw new Error(
@@ -294,10 +292,28 @@ function InvoicesTab() {
         );
       }
 
+      const { error: insertError } = await supabase.from("invoices").insert({
+        workspace_id: ws.id,
+        client_id: payload.client_id,
+        invoice_number: payload.invoice_number,
+        issue_date: payload.issue_date,
+        due_date: payload.due_date,
+        amount: payload.amount,
+        concept: payload.concept,
+        pdf_path: path,
+        source: "pdf",
+        status: "pending",
+      });
+
+      if (insertError) throw insertError;
+
       return path;
     },
     onSuccess: () => {
-      toast.success("PDF subido. Crea o vincula la factura manualmente.");
+      toast.success("PDF subido y factura creada");
+      setPdfOpen(false);
+      setPdfFile(null);
+      qc.invalidateQueries({ queryKey: ["invoices"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -321,15 +337,38 @@ function InvoicesTab() {
     });
   }
 
-  const clientName = (id: string) =>
-    clients.find((c) => c.id === id)?.name ?? "—";
+  const clientName = (id: string) => clients.find((c) => c.id === id)?.name ?? "—";
 
   function handlePdfChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (file) {
-      importPdfMut.mutate(file);
+      setPdfFile(file);
+      setPdfOpen(true);
     }
     e.currentTarget.value = "";
+  }
+
+  function onPdfSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!pdfFile) {
+      return toast.error("Selecciona un PDF");
+    }
+
+    const fd = new FormData(e.currentTarget);
+    const amount = Number(fd.get("amount"));
+    if (!isFinite(amount) || amount <= 0) {
+      return toast.error("Importe inválido");
+    }
+
+    importPdfMut.mutate({
+      file: pdfFile,
+      client_id: String(fd.get("client_id")),
+      invoice_number: String(fd.get("invoice_number")),
+      issue_date: String(fd.get("issue_date")),
+      due_date: String(fd.get("due_date")),
+      amount,
+      concept: String(fd.get("concept") ?? "") || null,
+    });
   }
 
   return (
@@ -371,6 +410,83 @@ function InvoicesTab() {
           <Upload className="mr-2 h-4 w-4" /> Importar PDF
         </Button>
 
+        <Dialog
+          open={pdfOpen}
+          onOpenChange={(next) => {
+            setPdfOpen(next);
+            if (!next) setPdfFile(null);
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Importar factura PDF</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={onPdfSubmit} className="space-y-3">
+              <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm">
+                <div className="truncate font-medium">{pdfFile?.name}</div>
+                <div className="text-xs text-muted-foreground">
+                  El PDF se guardará y quedará vinculado a la factura.
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Cliente *</Label>
+                <Select name="client_id" required>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona cliente" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Número *</Label>
+                  <Input name="invoice_number" required />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Importe (€) *</Label>
+                  <Input name="amount" type="number" step="0.01" required />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Emisión</Label>
+                  <Input
+                    name="issue_date"
+                    type="date"
+                    defaultValue={new Date().toISOString().slice(0, 10)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Vencimiento *</Label>
+                  <Input
+                    name="due_date"
+                    type="date"
+                    required
+                    defaultValue={new Date().toISOString().slice(0, 10)}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Concepto</Label>
+                <Input name="concept" />
+              </div>
+
+              <DialogFooter>
+                <Button type="submit" disabled={importPdfMut.isPending}>
+                  Crear factura
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button disabled={!canEdit}>
@@ -405,21 +521,14 @@ function InvoicesTab() {
                 </div>
                 <div className="space-y-1.5">
                   <Label>Importe (€) *</Label>
-                  <Input
-                    name="amount"
-                    type="number"
-                    step="0.01"
-                    required
-                  />
+                  <Input name="amount" type="number" step="0.01" required />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Emisión</Label>
                   <Input
                     name="issue_date"
                     type="date"
-                    defaultValue={new Date()
-                      .toISOString()
-                      .slice(0, 10)}
+                    defaultValue={new Date().toISOString().slice(0, 10)}
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -428,9 +537,7 @@ function InvoicesTab() {
                     name="due_date"
                     type="date"
                     required
-                    defaultValue={new Date()
-                      .toISOString()
-                      .slice(0, 10)}
+                    defaultValue={new Date().toISOString().slice(0, 10)}
                   />
                 </div>
               </div>
@@ -456,9 +563,7 @@ function InvoicesTab() {
                 <TableHead>Número</TableHead>
                 <TableHead>Cliente</TableHead>
                 <TableHead>Vencimiento</TableHead>
-                <TableHead className="text-right">
-                  Importe
-                </TableHead>
+                <TableHead className="text-right">Importe</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead></TableHead>
               </TableRow>
@@ -466,29 +571,21 @@ function InvoicesTab() {
             <TableBody>
               {isLoading && (
                 <TableRow>
-                  <TableCell
-                    colSpan={6}
-                    className="text-center py-8 text-sm text-muted-foreground"
-                  >
+                  <TableCell colSpan={6} className="text-center py-8 text-sm text-muted-foreground">
                     Cargando...
                   </TableCell>
                 </TableRow>
               )}
               {!isLoading && invoices.length === 0 && (
                 <TableRow>
-                  <TableCell
-                    colSpan={6}
-                    className="text-center py-8 text-sm text-muted-foreground"
-                  >
+                  <TableCell colSpan={6} className="text-center py-8 text-sm text-muted-foreground">
                     Sin facturas. Crea una, importa un CSV o sube un PDF.
                   </TableCell>
                 </TableRow>
               )}
               {invoices.map((inv) => (
                 <TableRow key={inv.id}>
-                  <TableCell className="font-mono text-xs">
-                    {inv.invoice_number}
-                  </TableCell>
+                  <TableCell className="font-mono text-xs">{inv.invoice_number}</TableCell>
                   <TableCell>{clientName(inv.client_id)}</TableCell>
                   <TableCell>{inv.due_date}</TableCell>
                   <TableCell className="text-right font-mono tabular-nums">
@@ -500,8 +597,8 @@ function InvoicesTab() {
                         inv.status === "paid"
                           ? "default"
                           : inv.status === "included"
-                          ? "secondary"
-                          : "outline"
+                            ? "secondary"
+                            : "outline"
                       }
                     >
                       {inv.status}
@@ -513,8 +610,7 @@ function InvoicesTab() {
                       size="icon"
                       disabled={!canEdit}
                       onClick={() => {
-                        if (confirm("¿Eliminar factura?"))
-                          deleteMut.mutate(inv.id);
+                        if (confirm("¿Eliminar factura?")) deleteMut.mutate(inv.id);
                       }}
                     >
                       <Trash2 className="h-4 w-4 text-muted-foreground" />
@@ -528,12 +624,8 @@ function InvoicesTab() {
       </Card>
 
       <p className="text-xs text-muted-foreground">
-        CSV admite columnas:{" "}
-        <code>
-          client,invoice_number,amount,due_date,issue_date,concept
-        </code>{" "}
-        (también acepta nombres en español: cliente, numero, importe,
-        vencimiento, fecha, concepto).
+        CSV admite columnas: <code>client,invoice_number,amount,due_date,issue_date,concept</code>{" "}
+        (también acepta nombres en español: cliente, numero, importe, vencimiento, fecha, concepto).
       </p>
     </div>
   );
@@ -550,18 +642,23 @@ function RemittanceTab() {
   const [creditorIban, setCreditorIban] = useState("");
   const [creditorBic, setCreditorBic] = useState("");
   const [creditorId, setCreditorId] = useState("");
-  const [collectionDate, setCollectionDate] = useState(new Date(Date.now() + 5 * 86400000).toISOString().slice(0, 10));
+  const [collectionDate, setCollectionDate] = useState(
+    new Date(Date.now() + 5 * 86400000).toISOString().slice(0, 10),
+  );
   const [issues, setIssues] = useState<string[]>([]);
 
   const pending = invoices.filter((i) => i.status === "pending");
 
   // Load mandates for selected invoices' clients
-  const { data: mandatesByClient = new Map<string, any>() } = useQuery({
+  const { data: mandatesByClient = new Map<string, SepaMandate>() } = useQuery({
     queryKey: ["all-mandates"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("sepa_mandates").select("*").eq("is_active", true);
+      const { data, error } = await supabase
+        .from("sepa_mandates")
+        .select("*")
+        .eq("is_active", true);
       if (error) throw error;
-      const map = new Map<string, any>();
+      const map = new Map<string, SepaMandate>();
       for (const m of data ?? []) if (!map.has(m.client_id)) map.set(m.client_id, m);
       return map;
     },
@@ -570,7 +667,15 @@ function RemittanceTab() {
   const total = invoices.filter((i) => selected.has(i.id)).reduce((s, i) => s + i.amount, 0);
 
   function toggle(id: string) {
-    setSelected((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+    setSelected((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) {
+        n.delete(id);
+      } else {
+        n.add(id);
+      }
+      return n;
+    });
   }
 
   function buildInput() {
@@ -593,8 +698,13 @@ function RemittanceTab() {
     }
     const messageId = `NEXA-${Date.now()}`;
     return {
-      messageId, creditorName, creditorIban, creditorBic: creditorBic || null,
-      creditorId, collectionDate, invoices: sepaInvoices,
+      messageId,
+      creditorName,
+      creditorIban,
+      creditorBic: creditorBic || null,
+      creditorId,
+      collectionDate,
+      invoices: sepaInvoices,
     };
   }
 
@@ -603,37 +713,57 @@ function RemittanceTab() {
       if (!ws) throw new Error("Sin workspace");
       const input = buildInput();
       const found = validateRemittance(input);
-      if (found.length) { setIssues(found.map((f) => f.message)); throw new Error("Validación fallida"); }
+      if (found.length) {
+        setIssues(found.map((f) => f.message));
+        throw new Error("Validación fallida");
+      }
       setIssues([]);
       const xml = generateSepaXml(input);
-      const { data: rem, error } = await supabase.from("remittances").insert({
-        workspace_id: ws.id,
-        message_id: input.messageId,
-        creditor_name: input.creditorName,
-        creditor_iban: input.creditorIban.replace(/\s+/g, "").toUpperCase(),
-        creditor_bic: input.creditorBic,
-        creditor_id: input.creditorId,
-        collection_date: input.collectionDate,
-        total_amount: input.invoices.reduce((s, i) => s + i.amount, 0),
-        transaction_count: input.invoices.length,
-        xml_content: xml,
-        status: "generated",
-      }).select().single();
+      const { data: rem, error } = await supabase
+        .from("remittances")
+        .insert({
+          workspace_id: ws.id,
+          message_id: input.messageId,
+          creditor_name: input.creditorName,
+          creditor_iban: input.creditorIban.replace(/\s+/g, "").toUpperCase(),
+          creditor_bic: input.creditorBic,
+          creditor_id: input.creditorId,
+          collection_date: input.collectionDate,
+          total_amount: input.invoices.reduce((s, i) => s + i.amount, 0),
+          transaction_count: input.invoices.length,
+          xml_content: xml,
+          status: "generated",
+        })
+        .select()
+        .single();
       if (error) throw error;
-      await supabase.from("remittance_invoices").insert(input.invoices.map((i) => ({
-        remittance_id: rem.id, invoice_id: i.invoiceId, amount: i.amount,
-      })));
-      await supabase.from("invoices").update({ status: "included" }).in("id", input.invoices.map((i) => i.invoiceId));
+      await supabase.from("remittance_invoices").insert(
+        input.invoices.map((i) => ({
+          remittance_id: rem.id,
+          invoice_id: i.invoiceId,
+          amount: i.amount,
+        })),
+      );
+      await supabase
+        .from("invoices")
+        .update({ status: "included" })
+        .in(
+          "id",
+          input.invoices.map((i) => i.invoiceId),
+        );
       downloadXml(`${input.messageId}.xml`, xml);
       return rem;
     },
     onSuccess: () => {
       toast.success("Remesa generada y descargada");
-      setSelected(new Set()); setIssues([]);
+      setSelected(new Set());
+      setIssues([]);
       qc.invalidateQueries({ queryKey: ["invoices"] });
       qc.invalidateQueries({ queryKey: ["remittances"] });
     },
-    onError: (e: Error) => { if (e.message !== "Validación fallida") toast.error(e.message); },
+    onError: (e: Error) => {
+      if (e.message !== "Validación fallida") toast.error(e.message);
+    },
   });
 
   function preview() {
@@ -646,27 +776,50 @@ function RemittanceTab() {
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
       <Card className="lg:col-span-2">
-        <CardHeader><CardTitle className="text-base">Selecciona facturas a incluir</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle className="text-base">Selecciona facturas a incluir</CardTitle>
+        </CardHeader>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="w-10"></TableHead>
-                <TableHead>Número</TableHead><TableHead>Cliente</TableHead>
-                <TableHead>Mandato</TableHead><TableHead className="text-right">Importe</TableHead>
+                <TableHead>Número</TableHead>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Mandato</TableHead>
+                <TableHead className="text-right">Importe</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {pending.length === 0 && <TableRow><TableCell colSpan={5} className="text-center py-6 text-sm text-muted-foreground">Sin facturas pendientes.</TableCell></TableRow>}
+              {pending.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-6 text-sm text-muted-foreground">
+                    Sin facturas pendientes.
+                  </TableCell>
+                </TableRow>
+              )}
               {pending.map((inv) => {
                 const m = mandatesByClient.get(inv.client_id);
                 return (
                   <TableRow key={inv.id}>
-                    <TableCell><Checkbox checked={selected.has(inv.id)} onCheckedChange={() => toggle(inv.id)} /></TableCell>
+                    <TableCell>
+                      <Checkbox
+                        checked={selected.has(inv.id)}
+                        onCheckedChange={() => toggle(inv.id)}
+                      />
+                    </TableCell>
                     <TableCell className="font-mono text-xs">{inv.invoice_number}</TableCell>
                     <TableCell>{clients.find((c) => c.id === inv.client_id)?.name}</TableCell>
-                    <TableCell className="text-xs">{m ? <span className="text-foreground font-mono">{m.mandate_reference}</span> : <span className="text-destructive">sin mandato</span>}</TableCell>
-                    <TableCell className="text-right font-mono tabular-nums">{inv.amount.toFixed(2)} €</TableCell>
+                    <TableCell className="text-xs">
+                      {m ? (
+                        <span className="text-foreground font-mono">{m.mandate_reference}</span>
+                      ) : (
+                        <span className="text-destructive">sin mandato</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right font-mono tabular-nums">
+                      {inv.amount.toFixed(2)} €
+                    </TableCell>
                   </TableRow>
                 );
               })}
@@ -676,32 +829,86 @@ function RemittanceTab() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle className="text-base">Datos del acreedor</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle className="text-base">Datos del acreedor</CardTitle>
+        </CardHeader>
         <CardContent className="space-y-3">
-          <div className="space-y-1.5"><Label>Nombre</Label><Input value={creditorName} onChange={(e) => setCreditorName(e.target.value)} /></div>
-          <div className="space-y-1.5"><Label>IBAN</Label><Input value={creditorIban} onChange={(e) => setCreditorIban(e.target.value)} className="font-mono" /></div>
-          <div className="space-y-1.5"><Label>BIC (opcional)</Label><Input value={creditorBic} onChange={(e) => setCreditorBic(e.target.value)} className="font-mono" /></div>
-          <div className="space-y-1.5"><Label>Identificador acreedor (Creditor ID)</Label><Input value={creditorId} onChange={(e) => setCreditorId(e.target.value)} placeholder="ESxxZZZxxxxxxxxx" /></div>
-          <div className="space-y-1.5"><Label>Fecha de cobro</Label><Input type="date" value={collectionDate} onChange={(e) => setCollectionDate(e.target.value)} /></div>
+          <div className="space-y-1.5">
+            <Label>Nombre</Label>
+            <Input value={creditorName} onChange={(e) => setCreditorName(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>IBAN</Label>
+            <Input
+              value={creditorIban}
+              onChange={(e) => setCreditorIban(e.target.value)}
+              className="font-mono"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>BIC (opcional)</Label>
+            <Input
+              value={creditorBic}
+              onChange={(e) => setCreditorBic(e.target.value)}
+              className="font-mono"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Identificador acreedor (Creditor ID)</Label>
+            <Input
+              value={creditorId}
+              onChange={(e) => setCreditorId(e.target.value)}
+              placeholder="ESxxZZZxxxxxxxxx"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Fecha de cobro</Label>
+            <Input
+              type="date"
+              value={collectionDate}
+              onChange={(e) => setCollectionDate(e.target.value)}
+            />
+          </div>
 
           <div className="rounded-md border bg-muted/40 p-3 text-sm">
-            <div className="flex justify-between"><span className="text-muted-foreground">Operaciones</span><span className="font-mono tabular-nums">{selected.size}</span></div>
-            <div className="flex justify-between font-medium"><span>Total</span><span className="font-mono tabular-nums">{total.toFixed(2)} €</span></div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Operaciones</span>
+              <span className="font-mono tabular-nums">{selected.size}</span>
+            </div>
+            <div className="flex justify-between font-medium">
+              <span>Total</span>
+              <span className="font-mono tabular-nums">{total.toFixed(2)} €</span>
+            </div>
           </div>
 
           {issues.length > 0 && (
             <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs">
-              <div className="mb-1 flex items-center gap-1 font-medium text-destructive"><AlertTriangle className="h-3 w-3" /> Errores de validación</div>
+              <div className="mb-1 flex items-center gap-1 font-medium text-destructive">
+                <AlertTriangle className="h-3 w-3" /> Errores de validación
+              </div>
               <ul className="list-disc pl-4 space-y-0.5 text-destructive">
-                {issues.slice(0, 8).map((m, i) => <li key={i}>{m}</li>)}
+                {issues.slice(0, 8).map((m, i) => (
+                  <li key={i}>{m}</li>
+                ))}
                 {issues.length > 8 && <li>… y {issues.length - 8} más</li>}
               </ul>
             </div>
           )}
 
           <div className="flex gap-2 pt-1">
-            <Button variant="outline" onClick={preview} disabled={selected.size === 0} className="flex-1">Validar</Button>
-            <Button onClick={() => generateMut.mutate()} disabled={!canEdit || selected.size === 0 || generateMut.isPending} className="flex-1">
+            <Button
+              variant="outline"
+              onClick={preview}
+              disabled={selected.size === 0}
+              className="flex-1"
+            >
+              Validar
+            </Button>
+            <Button
+              onClick={() => generateMut.mutate()}
+              disabled={!canEdit || selected.size === 0 || generateMut.isPending}
+              className="flex-1"
+            >
               <Send className="mr-2 h-4 w-4" /> Generar XML
             </Button>
           </div>
@@ -715,7 +922,10 @@ function HistoryTab() {
   const { data: remittances = [], isLoading } = useQuery({
     queryKey: ["remittances"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("remittances").select("*").order("created_at", { ascending: false });
+      const { data, error } = await supabase
+        .from("remittances")
+        .select("*")
+        .order("created_at", { ascending: false });
       if (error) throw error;
       return data ?? [];
     },
@@ -723,29 +933,55 @@ function HistoryTab() {
 
   return (
     <Card>
-      <CardHeader><CardTitle className="text-base">Histórico de remesas</CardTitle></CardHeader>
+      <CardHeader>
+        <CardTitle className="text-base">Histórico de remesas</CardTitle>
+      </CardHeader>
       <CardContent className="p-0">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Message ID</TableHead><TableHead>Fecha cobro</TableHead>
+              <TableHead>Message ID</TableHead>
+              <TableHead>Fecha cobro</TableHead>
               <TableHead className="text-right">Operaciones</TableHead>
               <TableHead className="text-right">Importe</TableHead>
-              <TableHead>Estado</TableHead><TableHead></TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {isLoading && <TableRow><TableCell colSpan={6} className="text-center py-8 text-sm text-muted-foreground">Cargando...</TableCell></TableRow>}
-            {!isLoading && remittances.length === 0 && <TableRow><TableCell colSpan={6} className="text-center py-8 text-sm text-muted-foreground">Aún no hay remesas.</TableCell></TableRow>}
+            {isLoading && (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-8 text-sm text-muted-foreground">
+                  Cargando...
+                </TableCell>
+              </TableRow>
+            )}
+            {!isLoading && remittances.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-8 text-sm text-muted-foreground">
+                  Aún no hay remesas.
+                </TableCell>
+              </TableRow>
+            )}
             {remittances.map((r) => (
               <TableRow key={r.id}>
                 <TableCell className="font-mono text-xs">{r.message_id}</TableCell>
                 <TableCell>{r.collection_date}</TableCell>
-                <TableCell className="text-right font-mono tabular-nums">{r.transaction_count}</TableCell>
-                <TableCell className="text-right font-mono tabular-nums">{Number(r.total_amount).toFixed(2)} €</TableCell>
-                <TableCell><Badge variant="secondary">{r.status}</Badge></TableCell>
+                <TableCell className="text-right font-mono tabular-nums">
+                  {r.transaction_count}
+                </TableCell>
+                <TableCell className="text-right font-mono tabular-nums">
+                  {Number(r.total_amount).toFixed(2)} €
+                </TableCell>
+                <TableCell>
+                  <Badge variant="secondary">{r.status}</Badge>
+                </TableCell>
                 <TableCell className="text-right">
-                  <Button variant="ghost" size="sm" onClick={() => downloadXml(`${r.message_id}.xml`, r.xml_content)}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => downloadXml(`${r.message_id}.xml`, r.xml_content)}
+                  >
                     <Download className="mr-2 h-4 w-4" /> XML
                   </Button>
                 </TableCell>
