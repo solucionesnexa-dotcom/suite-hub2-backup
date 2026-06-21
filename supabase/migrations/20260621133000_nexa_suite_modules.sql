@@ -27,6 +27,26 @@ DO $$ BEGIN
   CREATE TYPE public.task_status AS ENUM ('pendiente', 'en_curso', 'completada');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
+ALTER TYPE public.remittance_status ADD VALUE IF NOT EXISTS 'con_devoluciones';
+
+CREATE OR REPLACE FUNCTION public.current_user_can_write()
+RETURNS BOOLEAN
+LANGUAGE SQL
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.profiles
+    WHERE id = auth.uid()
+      AND activo = TRUE
+      AND rol_global IN ('admin', 'consultor')
+  );
+$$;
+
+GRANT EXECUTE ON FUNCTION public.current_user_can_write() TO authenticated;
+
 ALTER TABLE public.clients
   ADD COLUMN IF NOT EXISTS status public.pipeline_status NOT NULL DEFAULT 'prospecto',
   ADD COLUMN IF NOT EXISTS sector TEXT,
@@ -340,6 +360,50 @@ CREATE POLICY "Members manage retainer tareas" ON public.retainer_tareas FOR ALL
 CREATE POLICY "Members manage prospector leads" ON public.prospector_leads FOR ALL TO authenticated
   USING (public.is_workspace_member(auth.uid(), workspace_id))
   WITH CHECK (public.is_workspace_member(auth.uid(), workspace_id));
+
+-- Restrictive write guard: viewers can read through the member policies, but cannot mutate data.
+CREATE POLICY "Writers only insert clients" ON public.clients AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (public.current_user_can_write());
+CREATE POLICY "Writers only update clients" ON public.clients AS RESTRICTIVE FOR UPDATE TO authenticated USING (public.current_user_can_write()) WITH CHECK (public.current_user_can_write());
+CREATE POLICY "Writers only delete clients" ON public.clients AS RESTRICTIVE FOR DELETE TO authenticated USING (public.current_user_can_write());
+CREATE POLICY "Writers only insert invoices" ON public.invoices AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (public.current_user_can_write());
+CREATE POLICY "Writers only update invoices" ON public.invoices AS RESTRICTIVE FOR UPDATE TO authenticated USING (public.current_user_can_write()) WITH CHECK (public.current_user_can_write());
+CREATE POLICY "Writers only delete invoices" ON public.invoices AS RESTRICTIVE FOR DELETE TO authenticated USING (public.current_user_can_write());
+CREATE POLICY "Writers only insert remittances" ON public.remittances AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (public.current_user_can_write());
+CREATE POLICY "Writers only update remittances" ON public.remittances AS RESTRICTIVE FOR UPDATE TO authenticated USING (public.current_user_can_write()) WITH CHECK (public.current_user_can_write());
+CREATE POLICY "Writers only delete remittances" ON public.remittances AS RESTRICTIVE FOR DELETE TO authenticated USING (public.current_user_can_write());
+CREATE POLICY "Writers only insert mandates" ON public.sepa_mandates AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (public.current_user_can_write());
+CREATE POLICY "Writers only update mandates" ON public.sepa_mandates AS RESTRICTIVE FOR UPDATE TO authenticated USING (public.current_user_can_write()) WITH CHECK (public.current_user_can_write());
+CREATE POLICY "Writers only delete mandates" ON public.sepa_mandates AS RESTRICTIVE FOR DELETE TO authenticated USING (public.current_user_can_write());
+CREATE POLICY "Writers only insert company settings" ON public.company_settings AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (public.current_user_can_write());
+CREATE POLICY "Writers only update company settings" ON public.company_settings AS RESTRICTIVE FOR UPDATE TO authenticated USING (public.current_user_can_write()) WITH CHECK (public.current_user_can_write());
+CREATE POLICY "Writers only delete company settings" ON public.company_settings AS RESTRICTIVE FOR DELETE TO authenticated USING (public.current_user_can_write());
+CREATE POLICY "Writers only insert diagnosticos" ON public.diagnosticos AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (public.current_user_can_write());
+CREATE POLICY "Writers only update diagnosticos" ON public.diagnosticos AS RESTRICTIVE FOR UPDATE TO authenticated USING (public.current_user_can_write()) WITH CHECK (public.current_user_can_write());
+CREATE POLICY "Writers only delete diagnosticos" ON public.diagnosticos AS RESTRICTIVE FOR DELETE TO authenticated USING (public.current_user_can_write());
+CREATE POLICY "Writers only insert presupuestos" ON public.presupuestos AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (public.current_user_can_write());
+CREATE POLICY "Writers only update presupuestos" ON public.presupuestos AS RESTRICTIVE FOR UPDATE TO authenticated USING (public.current_user_can_write()) WITH CHECK (public.current_user_can_write());
+CREATE POLICY "Writers only delete presupuestos" ON public.presupuestos AS RESTRICTIVE FOR DELETE TO authenticated USING (public.current_user_can_write());
+CREATE POLICY "Writers only insert roi" ON public.roi_calculos AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (public.current_user_can_write());
+CREATE POLICY "Writers only update roi" ON public.roi_calculos AS RESTRICTIVE FOR UPDATE TO authenticated USING (public.current_user_can_write()) WITH CHECK (public.current_user_can_write());
+CREATE POLICY "Writers only delete roi" ON public.roi_calculos AS RESTRICTIVE FOR DELETE TO authenticated USING (public.current_user_can_write());
+CREATE POLICY "Writers only insert sops" ON public.sops AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (public.current_user_can_write());
+CREATE POLICY "Writers only update sops" ON public.sops AS RESTRICTIVE FOR UPDATE TO authenticated USING (public.current_user_can_write()) WITH CHECK (public.current_user_can_write());
+CREATE POLICY "Writers only delete sops" ON public.sops AS RESTRICTIVE FOR DELETE TO authenticated USING (public.current_user_can_write());
+CREATE POLICY "Writers only insert casos" ON public.casos_exito AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (public.current_user_can_write());
+CREATE POLICY "Writers only update casos" ON public.casos_exito AS RESTRICTIVE FOR UPDATE TO authenticated USING (public.current_user_can_write()) WITH CHECK (public.current_user_can_write());
+CREATE POLICY "Writers only delete casos" ON public.casos_exito AS RESTRICTIVE FOR DELETE TO authenticated USING (public.current_user_can_write());
+CREATE POLICY "Writers only insert pipeline notas" ON public.pipeline_notas AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (public.current_user_can_write());
+CREATE POLICY "Writers only update pipeline notas" ON public.pipeline_notas AS RESTRICTIVE FOR UPDATE TO authenticated USING (public.current_user_can_write()) WITH CHECK (public.current_user_can_write());
+CREATE POLICY "Writers only delete pipeline notas" ON public.pipeline_notas AS RESTRICTIVE FOR DELETE TO authenticated USING (public.current_user_can_write());
+CREATE POLICY "Writers only insert retainers" ON public.retainers AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (public.current_user_can_write());
+CREATE POLICY "Writers only update retainers" ON public.retainers AS RESTRICTIVE FOR UPDATE TO authenticated USING (public.current_user_can_write()) WITH CHECK (public.current_user_can_write());
+CREATE POLICY "Writers only delete retainers" ON public.retainers AS RESTRICTIVE FOR DELETE TO authenticated USING (public.current_user_can_write());
+CREATE POLICY "Writers only insert retainer tareas" ON public.retainer_tareas AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (public.current_user_can_write());
+CREATE POLICY "Writers only update retainer tareas" ON public.retainer_tareas AS RESTRICTIVE FOR UPDATE TO authenticated USING (public.current_user_can_write()) WITH CHECK (public.current_user_can_write());
+CREATE POLICY "Writers only delete retainer tareas" ON public.retainer_tareas AS RESTRICTIVE FOR DELETE TO authenticated USING (public.current_user_can_write());
+CREATE POLICY "Writers only insert prospector" ON public.prospector_leads AS RESTRICTIVE FOR INSERT TO authenticated WITH CHECK (public.current_user_can_write());
+CREATE POLICY "Writers only update prospector" ON public.prospector_leads AS RESTRICTIVE FOR UPDATE TO authenticated USING (public.current_user_can_write()) WITH CHECK (public.current_user_can_write());
+CREATE POLICY "Writers only delete prospector" ON public.prospector_leads AS RESTRICTIVE FOR DELETE TO authenticated USING (public.current_user_can_write());
 
 CREATE TRIGGER trg_company_settings_updated BEFORE UPDATE ON public.company_settings FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 CREATE TRIGGER trg_diagnosticos_updated BEFORE UPDATE ON public.diagnosticos FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();

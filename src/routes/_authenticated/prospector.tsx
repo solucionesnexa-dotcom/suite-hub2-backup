@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
+import { PaginationBar } from "@/components/PaginationBar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -48,12 +49,13 @@ function ProspectorPage() {
   const [mapsQuery, setMapsQuery] = useState("residencias de mayores");
   const [mapsLocation, setMapsLocation] = useState("Andalucia");
   const [mapsResults, setMapsResults] = useState<GoogleMapsLead[]>([]);
+  const [page, setPage] = useState(0);
   const [form, setForm] = useState(emptyForm());
 
   const score = useMemo(() => scoreLead(form), [form]);
 
   const { data: leads = [] } = useQuery({
-    queryKey: ["prospector-leads", ws?.id],
+    queryKey: ["prospector-leads", ws?.id, page],
     enabled: !!ws,
     queryFn: async () => {
       const { data, error } = await db
@@ -61,7 +63,8 @@ function ProspectorPage() {
         .select("*")
         .eq("workspace_id", ws!.id)
         .order("score", { ascending: false })
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .range(page * 20, page * 20 + 19);
       if (error) throw error;
       return data ?? [];
     },
@@ -390,6 +393,7 @@ function ProspectorPage() {
                   )}
                 </div>
               ))}
+              <PaginationBar page={page} count={leads.length} onPageChange={setPage} />
             </CardContent>
           </Card>
         </div>

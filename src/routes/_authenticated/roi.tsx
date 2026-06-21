@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
+import { PaginationBar } from "@/components/PaginationBar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -12,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
 import { useCanEdit } from "@/hooks/useCanEdit";
 import { useCurrentWorkspace } from "@/hooks/useCurrentWorkspace";
-import { db, downloadTextFile, eur, getCompanySettings, renderOnePager, spendCredits } from "@/lib/nexa";
+import { db, downloadPdfFile, eur, getCompanySettings, spendCredits } from "@/lib/nexa";
 import { Download, Save } from "lucide-react";
 import { toast } from "sonner";
 
@@ -27,6 +28,7 @@ function RoiPage() {
   const { user } = useAuth();
   const canEdit = useCanEdit();
   const qc = useQueryClient();
+  const [page, setPage] = useState(0);
   const [form, setForm] = useState({
     nombre_calculo: "Automatizacion administrativa",
     client_id: "",
@@ -56,10 +58,10 @@ function RoiPage() {
   });
 
   const { data: history = [] } = useQuery({
-    queryKey: ["roi-history", ws?.id],
+    queryKey: ["roi-history", ws?.id, page],
     enabled: !!ws,
     queryFn: async () => {
-      const { data, error } = await db.from("roi_calculos").select("*, clients(name)").eq("workspace_id", ws!.id).order("created_at", { ascending: false }).limit(20);
+      const { data, error } = await db.from("roi_calculos").select("*, clients(name)").eq("workspace_id", ws!.id).order("created_at", { ascending: false }).range(page * 20, page * 20 + 19);
       if (error) throw error;
       return data ?? [];
     },
@@ -101,7 +103,7 @@ function RoiPage() {
         <tr><th>Ahorro anual estimado</th><td>${eur(result.saving)}</td></tr>
         <tr><th>Payback</th><td>${result.months.toFixed(1)} meses</td></tr>
         <tr><th>ROI ano 1</th><td>${result.roi.toFixed(0)}%</td></tr></table>`;
-      downloadTextFile(`roi-${Date.now()}.html`, renderOnePager("ROI de automatizacion", body, company));
+      downloadPdfFile(`roi-${Date.now()}.pdf`, "ROI de automatizacion", body, company);
       qc.invalidateQueries({ queryKey: ["credit-balance"] });
     } catch (e: any) {
       toast.error(e.message);
@@ -169,6 +171,7 @@ function RoiPage() {
                   <div className="text-right"><div>{eur(item.ahorro_anual_calculado)}</div><div className="text-xs text-muted-foreground">{Number(item.roi_meses_calculado).toFixed(1)} meses</div></div>
                 </div>
               ))}
+              <PaginationBar page={page} count={history.length} onPageChange={setPage} />
             </CardContent>
           </Card>
         </div>

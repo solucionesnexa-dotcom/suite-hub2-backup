@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
+import { PaginationBar } from "@/components/PaginationBar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -12,7 +13,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useCanEdit } from "@/hooks/useCanEdit";
 import { useCurrentWorkspace } from "@/hooks/useCurrentWorkspace";
 import { generateSopWithAi } from "@/lib/api/ai.functions";
-import { db, downloadTextFile, escapeHtml, getCompanySettings, renderOnePager, spendCredits } from "@/lib/nexa";
+import { db, downloadPdfFile, escapeHtml, getCompanySettings, spendCredits } from "@/lib/nexa";
 import { Download, Save, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
@@ -27,6 +28,7 @@ function SopPage() {
   const { user } = useAuth();
   const canEdit = useCanEdit();
   const qc = useQueryClient();
+  const [page, setPage] = useState(0);
   const [clientId, setClientId] = useState("");
   const [titulo, setTitulo] = useState("");
   const [responsable, setResponsable] = useState("");
@@ -44,10 +46,10 @@ function SopPage() {
   });
 
   const { data: history = [] } = useQuery({
-    queryKey: ["sops", ws?.id],
+    queryKey: ["sops", ws?.id, page],
     enabled: !!ws,
     queryFn: async () => {
-      const { data, error } = await db.from("sops").select("*, clients(name)").eq("workspace_id", ws!.id).order("created_at", { ascending: false }).limit(20);
+      const { data, error } = await db.from("sops").select("*, clients(name)").eq("workspace_id", ws!.id).order("created_at", { ascending: false }).range(page * 20, page * 20 + 19);
       if (error) throw error;
       return data ?? [];
     },
@@ -85,7 +87,7 @@ function SopPage() {
     const steps = result.pasos.map((p: any) => `<li><strong>${p.numero}. ${escapeHtml(p.descripcion)}</strong><br/>Entrada: ${escapeHtml(p.condicion_entrada)}<br/>Herramienta: ${escapeHtml(p.herramienta)}</li>`).join("");
     void (async () => {
       const company = ws ? await getCompanySettings(ws.id) : null;
-      downloadTextFile(`sop-${Date.now()}.html`, renderOnePager(titulo || "SOP", `<h2>${escapeHtml(result.objetivo)}</h2><ol>${steps}</ol><p><strong>Entregable:</strong> ${escapeHtml(result.entregable)}</p>`, company));
+      downloadPdfFile(`sop-${Date.now()}.pdf`, titulo || "SOP", `<h2>${escapeHtml(result.objetivo)}</h2><ol>${steps}</ol><p><strong>Entregable:</strong> ${escapeHtml(result.entregable)}</p>`, company);
     })();
   }
 
@@ -142,6 +144,7 @@ function SopPage() {
             <CardHeader><CardTitle>Historial</CardTitle></CardHeader>
             <CardContent className="space-y-2">
               {history.map((s: any) => <div key={s.id} className="rounded-md border p-3 text-sm"><strong>{s.titulo}</strong> · {s.clients?.name ?? "Sin cliente"} · {s.estado}</div>)}
+              <PaginationBar page={page} count={history.length} onPageChange={setPage} />
             </CardContent>
           </Card>
         </div>

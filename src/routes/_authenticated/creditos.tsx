@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
+import { PaginationBar } from "@/components/PaginationBar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,6 +24,7 @@ function CreditsPage() {
   const { data: ws } = useCurrentWorkspace();
   const { data: profile } = useProfile();
   const qc = useQueryClient();
+  const [page, setPage] = useState(0);
 
   const { data: balance = 0 } = useQuery({
     queryKey: ["credit-balance", ws?.id],
@@ -30,7 +33,7 @@ function CreditsPage() {
   });
 
   const { data: movements = [] } = useQuery({
-    queryKey: ["credit-movements", ws?.id],
+    queryKey: ["credit-movements", ws?.id, page],
     enabled: !!ws,
     queryFn: async () => {
       const { data, error } = await db
@@ -38,7 +41,7 @@ function CreditsPage() {
         .select("*")
         .eq("workspace_id", ws!.id)
         .order("created_at", { ascending: false })
-        .limit(100);
+        .range(page * 20, page * 20 + 19);
       if (error) throw error;
       return data ?? [];
     },
@@ -107,6 +110,7 @@ function CreditsPage() {
                 <div>Saldo: {m.balance_after}</div>
               </div>
             ))}
+            <PaginationBar page={page} count={movements.length} onPageChange={setPage} />
           </CardContent>
         </Card>
       </div>

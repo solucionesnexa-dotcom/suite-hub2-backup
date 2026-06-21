@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedUsuariosRouteImport } from './routes/_authenticated/usuarios'
 import { Route as AuthenticatedSopRouteImport } from './routes/_authenticated/sop'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedRoiRouteImport } from './routes/_authenticated/roi'
@@ -41,6 +42,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedUsuariosRoute = AuthenticatedUsuariosRouteImport.update({
+  id: '/usuarios',
+  path: '/usuarios',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedSopRoute = AuthenticatedSopRouteImport.update({
   id: '/sop',
@@ -137,6 +143,7 @@ export interface FileRoutesByFullPath {
   '/roi': typeof AuthenticatedRoiRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/sop': typeof AuthenticatedSopRoute
+  '/usuarios': typeof AuthenticatedUsuariosRoute
   '/clients/$id': typeof AuthenticatedClientsIdRoute
 }
 export interface FileRoutesByTo {
@@ -156,6 +163,7 @@ export interface FileRoutesByTo {
   '/roi': typeof AuthenticatedRoiRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/sop': typeof AuthenticatedSopRoute
+  '/usuarios': typeof AuthenticatedUsuariosRoute
   '/clients/$id': typeof AuthenticatedClientsIdRoute
 }
 export interface FileRoutesById {
@@ -177,6 +185,7 @@ export interface FileRoutesById {
   '/_authenticated/roi': typeof AuthenticatedRoiRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/sop': typeof AuthenticatedSopRoute
+  '/_authenticated/usuarios': typeof AuthenticatedUsuariosRoute
   '/_authenticated/clients/$id': typeof AuthenticatedClientsIdRoute
 }
 export interface FileRouteTypes {
@@ -198,6 +207,7 @@ export interface FileRouteTypes {
     | '/roi'
     | '/settings'
     | '/sop'
+    | '/usuarios'
     | '/clients/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -217,6 +227,7 @@ export interface FileRouteTypes {
     | '/roi'
     | '/settings'
     | '/sop'
+    | '/usuarios'
     | '/clients/$id'
   id:
     | '__root__'
@@ -237,6 +248,7 @@ export interface FileRouteTypes {
     | '/_authenticated/roi'
     | '/_authenticated/settings'
     | '/_authenticated/sop'
+    | '/_authenticated/usuarios'
     | '/_authenticated/clients/$id'
   fileRoutesById: FileRoutesById
 }
@@ -268,6 +280,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/usuarios': {
+      id: '/_authenticated/usuarios'
+      path: '/usuarios'
+      fullPath: '/usuarios'
+      preLoaderRoute: typeof AuthenticatedUsuariosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/sop': {
       id: '/_authenticated/sop'
@@ -403,6 +422,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedRoiRoute: typeof AuthenticatedRoiRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedSopRoute: typeof AuthenticatedSopRoute
+  AuthenticatedUsuariosRoute: typeof AuthenticatedUsuariosRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -420,6 +440,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedRoiRoute: AuthenticatedRoiRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedSopRoute: AuthenticatedSopRoute,
+  AuthenticatedUsuariosRoute: AuthenticatedUsuariosRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

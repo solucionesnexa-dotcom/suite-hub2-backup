@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
+import { PaginationBar } from "@/components/PaginationBar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -13,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/useAuth";
 import { useCanEdit } from "@/hooks/useCanEdit";
 import { useCurrentWorkspace } from "@/hooks/useCurrentWorkspace";
-import { db, downloadTextFile, escapeHtml, getCompanySettings, renderOnePager, spendCredits } from "@/lib/nexa";
+import { db, downloadPdfFile, escapeHtml, getCompanySettings, spendCredits } from "@/lib/nexa";
 import { Download, FilePlus2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -54,6 +55,7 @@ function DiagnosticoPage() {
   const { user } = useAuth();
   const canEdit = useCanEdit();
   const qc = useQueryClient();
+  const [page, setPage] = useState(0);
   const [clientId, setClientId] = useState("");
   const [newClient, setNewClient] = useState({ name: "", sector: "", size: "", website: "" });
   const [tools, setTools] = useState<string[]>([]);
@@ -78,10 +80,10 @@ function DiagnosticoPage() {
   });
 
   const { data: history = [] } = useQuery({
-    queryKey: ["diagnosticos", ws?.id],
+    queryKey: ["diagnosticos", ws?.id, page],
     enabled: !!ws,
     queryFn: async () => {
-      const { data, error } = await db.from("diagnosticos").select("*, clients(name)").eq("workspace_id", ws!.id).order("created_at", { ascending: false }).limit(20);
+      const { data, error } = await db.from("diagnosticos").select("*, clients(name)").eq("workspace_id", ws!.id).order("created_at", { ascending: false }).range(page * 20, page * 20 + 19);
       if (error) throw error;
       return data ?? [];
     },
@@ -121,7 +123,7 @@ function DiagnosticoPage() {
         <p>Herramientas actuales: ${escapeHtml(tools.join(", ") || "No indicado")}</p>
         <p>Presencia digital: ${escapeHtml(presence.join(", ") || "No indicado")}</p>
         <h2>Quick wins</h2><ul>${quickWins.map((w) => `<li>${escapeHtml(w)}</li>`).join("")}</ul>`;
-      downloadTextFile(`diagnostico-${Date.now()}.html`, renderOnePager("Diagnostico expres digital", body, company));
+      downloadPdfFile(`diagnostico-${Date.now()}.pdf`, "Diagnostico expres digital", body, company);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["diagnosticos"] });
@@ -209,6 +211,7 @@ function DiagnosticoPage() {
                     <div>{d.estado}</div>
                   </div>
                 ))}
+                <PaginationBar page={page} count={history.length} onPageChange={setPage} />
               </CardContent>
             </Card>
           </TabsContent>

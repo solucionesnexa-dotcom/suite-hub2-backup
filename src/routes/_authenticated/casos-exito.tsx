@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
+import { PaginationBar } from "@/components/PaginationBar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -13,7 +14,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useCanEdit } from "@/hooks/useCanEdit";
 import { useCurrentWorkspace } from "@/hooks/useCurrentWorkspace";
 import { generateCaseStudyWithAi } from "@/lib/api/ai.functions";
-import { db, downloadTextFile, escapeHtml, getCompanySettings, renderOnePager, spendCredits } from "@/lib/nexa";
+import { db, downloadPdfFile, escapeHtml, getCompanySettings, spendCredits } from "@/lib/nexa";
 import { Copy, Download, Save, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
@@ -30,6 +31,7 @@ function CasosExitoPage() {
   const { user } = useAuth();
   const canEdit = useCanEdit();
   const qc = useQueryClient();
+  const [page, setPage] = useState(0);
   const [form, setForm] = useState({
     client_id: "",
     cliente_anonimo: false,
@@ -52,10 +54,10 @@ function CasosExitoPage() {
   });
 
   const { data: history = [] } = useQuery({
-    queryKey: ["casos-exito", ws?.id],
+    queryKey: ["casos-exito", ws?.id, page],
     enabled: !!ws,
     queryFn: async () => {
-      const { data, error } = await db.from("casos_exito").select("*, clients(name)").eq("workspace_id", ws!.id).order("created_at", { ascending: false }).limit(20);
+      const { data, error } = await db.from("casos_exito").select("*, clients(name)").eq("workspace_id", ws!.id).order("created_at", { ascending: false }).range(page * 20, page * 20 + 19);
       if (error) throw error;
       return data ?? [];
     },
@@ -120,7 +122,7 @@ function CasosExitoPage() {
     if (!outputs.pdf_contenido) return toast.error("Genera el contenido antes");
     void (async () => {
       const company = ws ? await getCompanySettings(ws.id) : null;
-      downloadTextFile(`caso-exito-${Date.now()}.html`, renderOnePager("Caso de exito", `<p>${escapeHtml(outputs.pdf_contenido).replaceAll("\n", "<br/>")}</p>`, company));
+      downloadPdfFile(`caso-exito-${Date.now()}.pdf`, "Caso de exito", `<p>${escapeHtml(outputs.pdf_contenido).replaceAll("\n", "<br/>")}</p>`, company);
     })();
   }
 
@@ -166,6 +168,7 @@ function CasosExitoPage() {
             <CardHeader><CardTitle>Historial</CardTitle></CardHeader>
             <CardContent className="space-y-2">
               {history.map((item: any) => <div key={item.id} className="rounded-md border p-3 text-sm"><strong>{item.clients?.name ?? "Anonimo"}</strong> · {item.sector ?? "Sin sector"} · {item.resultado_cuantificable}</div>)}
+              <PaginationBar page={page} count={history.length} onPageChange={setPage} />
             </CardContent>
           </Card>
         </div>

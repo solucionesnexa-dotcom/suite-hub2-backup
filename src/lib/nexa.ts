@@ -70,6 +70,110 @@ export function downloadTextFile(filename: string, content: string, type = "text
   URL.revokeObjectURL(url);
 }
 
+export function downloadPdfFile(filename: string, title: string, htmlBody: string, company?: CompanySettings | null) {
+  const text = htmlToPlainText(htmlBody);
+  const companyName = company?.trade_name || company?.legal_name || "Nexa Soluciones";
+  const companyMeta = [company?.tax_id, company?.email, company?.phone, company?.address].filter(Boolean).join(" · ");
+  const lines = wrapPdfLines([companyName, companyMeta, "", title, "", ...text.split("\n")].filter((line) => line !== undefined), 92);
+  const content = buildSimplePdf(lines);
+  const blob = new Blob([content], { type: "application/pdf" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename.endsWith(".pdf") ? filename : `${filename}.pdf`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function htmlToPlainText(html: string) {
+  return html
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<\/tr>/gi, "\n")
+    .replace(/<\/td>/gi, "  ")
+    .replace(/<\/th>/gi, "  ")
+    .replace(/<li>/gi, "• ")
+    .replace(/<\/li>/gi, "\n")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function wrapPdfLines(lines: string[], max = 92) {
+  const wrapped: string[] = [];
+  for (const raw of lines) {
+    const line = String(raw ?? "");
+    if (line.length <= max) {
+      wrapped.push(line);
+      continue;
+    }
+    let rest = line;
+    while (rest.length > max) {
+      const cut = rest.lastIndexOf(" ", max);
+      const index = cut > 20 ? cut : max;
+      wrapped.push(rest.slice(0, index));
+      rest = rest.slice(index).trimStart();
+    }
+    if (rest) wrapped.push(rest);
+  }
+  return wrapped;
+}
+
+function buildSimplePdf(lines: string[]) {
+  const objects: string[] = [];
+  const pageCount = Math.max(1, Math.ceil(lines.length / 42));
+  const pageObjectIds: number[] = [];
+  const contentObjectIds: number[] = [];
+
+  objects.push("<< /Type /Catalog /Pages 2 0 R >>");
+  objects.push("PAGES_PLACEHOLDER");
+  objects.push("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
+
+  for (let page = 0; page < pageCount; page++) {
+    const pageLines = lines.slice(page * 42, page * 42 + 42);
+    const content = [
+      "BT",
+      "/F1 10 Tf",
+      "50 790 Td",
+      "14 TL",
+      ...pageLines.map((line, index) => `${index === 0 ? "" : "T* "}${pdfText(line)}`),
+      "ET",
+    ].join("\n");
+    const contentId = objects.length + 2;
+    const pageId = objects.length + 1;
+    pageObjectIds.push(pageId);
+    contentObjectIds.push(contentId);
+    objects.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents ${contentId} 0 R >>`);
+    objects.push(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`);
+  }
+
+  objects[1] = `<< /Type /Pages /Kids [${pageObjectIds.map((id) => `${id} 0 R`).join(" ")}] /Count ${pageCount} >>`;
+
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+  objects.forEach((object, index) => {
+    offsets.push(pdf.length);
+    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
+  });
+  const xref = pdf.length;
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  offsets.slice(1).forEach((offset) => {
+    pdf += `${String(offset).padStart(10, "0")} 00000 n \n`;
+  });
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
+  return pdf;
+}
+
+function pdfText(value: string) {
+  const ascii = value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\x20-\x7E]/g, "-");
+  return `(${ascii.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)")}) Tj`;
+}
+
 export async function getCompanySettings(workspaceId: string): Promise<CompanySettings | null> {
   const { data, error } = await db
     .from("company_settings")

@@ -264,6 +264,44 @@ function InvoicesTab() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const importPdfMut = useMutation({
+    mutationFn: async (file: File) => {
+      if (!ws) throw new Error("Sin workspace");
+      if (file.type !== "application/pdf") {
+        throw new Error("Solo se admiten archivos PDF");
+      }
+
+      const safeName = file.name
+        .replace(/\.pdf$/i, "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-zA-Z0-9._-]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 80);
+      const path = `${ws.id}/${Date.now()}-${safeName || "factura"}.pdf`;
+      const { error } = await supabase.storage
+        .from("facturas")
+        .upload(path, file, {
+          contentType: "application/pdf",
+          upsert: false,
+        });
+
+      if (error) {
+        throw new Error(
+          error.message.includes("Bucket not found")
+            ? "No existe el bucket facturas. Aplica la migración de Storage antes de importar PDFs."
+            : error.message,
+        );
+      }
+
+      return path;
+    },
+    onSuccess: () => {
+      toast.success("PDF subido. Crea o vincula la factura manualmente.");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
@@ -289,8 +327,7 @@ function InvoicesTab() {
   function handlePdfChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (file) {
-      console.log("PDF seleccionado:", file);
-      // Aquí luego conectarás el upload (Supabase Storage, etc.)
+      importPdfMut.mutate(file);
     }
     e.currentTarget.value = "";
   }
@@ -443,7 +480,7 @@ function InvoicesTab() {
                     colSpan={6}
                     className="text-center py-8 text-sm text-muted-foreground"
                   >
-                    Sin facturas. Crea una o importa un CSV.
+                    Sin facturas. Crea una, importa un CSV o sube un PDF.
                   </TableCell>
                 </TableRow>
               )}

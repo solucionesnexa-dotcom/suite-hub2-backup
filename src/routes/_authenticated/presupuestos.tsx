@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
+import { PaginationBar } from "@/components/PaginationBar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
 import { useCanEdit } from "@/hooks/useCanEdit";
 import { useCurrentWorkspace } from "@/hooks/useCurrentWorkspace";
-import { db, downloadTextFile, escapeHtml, eur, getCompanySettings, renderOnePager, serviceCatalog, spendCredits, today } from "@/lib/nexa";
+import { db, downloadPdfFile, escapeHtml, eur, getCompanySettings, serviceCatalog, spendCredits, today } from "@/lib/nexa";
 import { Download, Plus, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -37,6 +38,7 @@ function PresupuestosPage() {
   const [clientId, setClientId] = useState("");
   const [statusFilter, setStatusFilter] = useState("todos");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(0);
   const [discount, setDiscount] = useState(0);
   const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<Line[]>([{ descripcion: "Automatizacion basica", tipo: "servicio_unico", importe: 150, cantidad: 1 }]);
@@ -62,12 +64,12 @@ function PresupuestosPage() {
   });
 
   const { data: budgets = [] } = useQuery({
-    queryKey: ["presupuestos", ws?.id, statusFilter],
+    queryKey: ["presupuestos", ws?.id, statusFilter, page],
     enabled: !!ws,
     queryFn: async () => {
       let query = db.from("presupuestos").select("*, clients(name)").eq("workspace_id", ws!.id);
       if (statusFilter !== "todos") query = query.eq("estado", statusFilter);
-      const { data, error } = await query.order("fecha", { ascending: false }).limit(20);
+      const { data, error } = await query.order("fecha", { ascending: false }).range(page * 20, page * 20 + 19);
       if (error) throw error;
       return data ?? [];
     },
@@ -142,7 +144,7 @@ function PresupuestosPage() {
       const body = `<h2>Propuesta para ${escapeHtml(client?.name ?? "cliente")}</h2>
         <table><thead><tr><th>Servicio</th><th>Cantidad</th><th>Importe</th><th>Total</th></tr></thead><tbody>${rows}</tbody></table>
         <p>Descuento: ${discount}%</p><p class="total">Total: ${eur(totals.total)}</p><p>${escapeHtml(notes)}</p>`;
-      downloadTextFile(`presupuesto-${Date.now()}.html`, renderOnePager("Propuesta comercial Nexa", body, company));
+      downloadPdfFile(`presupuesto-${Date.now()}.pdf`, "Propuesta comercial Nexa", body, company);
       qc.invalidateQueries({ queryKey: ["credit-balance"] });
     } catch (e: any) {
       toast.error(e.message);
@@ -242,6 +244,7 @@ function PresupuestosPage() {
                 </Select>
               </div>
             ))}
+            <PaginationBar page={page} count={budgets.length} onPageChange={setPage} />
           </CardContent>
         </Card>
       </div>

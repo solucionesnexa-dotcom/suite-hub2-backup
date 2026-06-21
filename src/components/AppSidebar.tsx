@@ -12,6 +12,7 @@ import {
   Settings,
   Sparkles,
   Trophy,
+  UserCog,
   Users,
   WalletCards,
   Building2,
@@ -56,6 +57,7 @@ const content = [
 
 const admin = [
   { title: "Ajustes", url: "/settings", icon: Settings },
+  { title: "Usuarios", url: "/usuarios", icon: UserCog },
   { title: "Créditos", url: "/creditos", icon: WalletCards },
 ];
 

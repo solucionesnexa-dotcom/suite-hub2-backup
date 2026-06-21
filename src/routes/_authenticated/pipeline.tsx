@@ -28,6 +28,7 @@ function PipelinePage() {
   const canEdit = useCanEdit();
   const qc = useQueryClient();
   const [selected, setSelected] = useState<any | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
 
   const { data: clients = [] } = useQuery({
     queryKey: ["pipeline-clients", ws?.id],
@@ -103,7 +104,19 @@ function PipelinePage() {
           {pipelineColumns.map((column) => {
             const items = clients.filter((c: any) => (c.status ?? "prospecto") === column.value);
             return (
-              <div key={column.value} className="min-w-[230px] space-y-3">
+              <div
+                key={column.value}
+                className="min-w-[230px] space-y-3"
+                onDragOver={(e) => {
+                  if (canEdit) e.preventDefault();
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const id = e.dataTransfer.getData("text/plain") || draggingId;
+                  if (canEdit && id) moveMut.mutate({ id, status: column.value });
+                  setDraggingId(null);
+                }}
+              >
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-semibold">{column.label}</h3>
                   <Badge variant="secondary">{items.length}</Badge>
@@ -114,7 +127,17 @@ function PipelinePage() {
                     const urgent =
                       stale > 14 && ["diagnostico", "propuesta_enviada", "negociacion"].includes(column.value);
                     return (
-                      <Card key={client.id} className="cursor-pointer p-3 hover:bg-accent/50" onClick={() => setSelected(client)}>
+                      <Card
+                        key={client.id}
+                        draggable={canEdit}
+                        className="cursor-pointer p-3 hover:bg-accent/50"
+                        onDragStart={(e) => {
+                          setDraggingId(client.id);
+                          e.dataTransfer.setData("text/plain", client.id);
+                        }}
+                        onDragEnd={() => setDraggingId(null)}
+                        onClick={() => setSelected(client)}
+                      >
                         <div className="flex items-start justify-between gap-2">
                           <div>
                             <div className="font-medium">{client.name}</div>
