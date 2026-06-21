@@ -9,6 +9,7 @@ binding = "ASSETS"
 
 [vars]
 SUPABASE_URL = "https://reqhwbjguegrchiicayb.supabase.co"
+SUPABASE_PUBLISHABLE_KEY = "sb_publishable_lwYQ_8WHXrEIC2IMsS-3AQ_R1Naxha4"
 
 [[routes]]
 pattern = "nexasoluciones.cloud"
