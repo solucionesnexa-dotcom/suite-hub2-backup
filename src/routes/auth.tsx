@@ -1,7 +1,6 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,14 +27,44 @@ const signupSchema = loginSchema.extend({
   workspaceName: z.string().min(2, "Nombre del workspace").max(120),
 });
 
+const dashboardPath = "/dashboard";
+
+function getAuthRedirectUrl() {
+  return `${window.location.origin}/auth?next=${encodeURIComponent(dashboardPath)}`;
+}
+
+function getNextPath() {
+  const next = new URLSearchParams(window.location.search).get("next");
+  return next?.startsWith("/") ? next : dashboardPath;
+}
+
 function AuthPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: "/dashboard", replace: true });
+    const params = new URLSearchParams(window.location.search);
+    const authError = params.get("error_description") || params.get("error");
+    if (authError) {
+      toast.error(decodeURIComponent(authError.replace(/\+/g, " ")));
+      window.history.replaceState({}, document.title, "/auth");
+    }
+
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" && session) {
+        navigate({ to: getNextPath(), replace: true });
+      }
     });
+
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      if (data.session) navigate({ to: getNextPath(), replace: true });
+    });
+
+    return () => sub.subscription.unsubscribe();
   }, [navigate]);
 
   async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
@@ -47,7 +76,10 @@ function AuthPage() {
       return;
     }
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword(parsed.data);
+    const { error } = await supabase.auth.signInWithPassword({
+      email: parsed.data.email.trim().toLowerCase(),
+      password: parsed.data.password,
+    });
     setLoading(false);
     if (error) {
       toast.error(error.message);
@@ -75,7 +107,7 @@ function AuthPage() {
       email: parsed.data.email,
       password: parsed.data.password,
       options: {
-        emailRedirectTo: window.location.origin,
+        emailRedirectTo: getAuthRedirectUrl(),
         data: { full_name: parsed.data.fullName, workspace_name: parsed.data.workspaceName },
       },
     });
@@ -109,16 +141,17 @@ function AuthPage() {
             disabled={loading}
             onClick={async () => {
               setLoading(true);
-              const result = await lovable.auth.signInWithOAuth("google", {
-                redirect_uri: window.location.origin + "/dashboard",
+              const { error } = await supabase.auth.signInWithOAuth({
+                provider: "google",
+                options: {
+                  redirectTo: getAuthRedirectUrl(),
+                  queryParams: {
+                    prompt: "select_account",
+                  },
+                },
               });
-              if (result.error) {
-                setLoading(false);
-                toast.error(result.error.message ?? "Error con Google");
-                return;
-              }
-              if (result.redirected) return;
-              navigate({ to: "/dashboard", replace: true });
+              setLoading(false);
+              if (error) toast.error(error.message);
             }}
           >
             <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
