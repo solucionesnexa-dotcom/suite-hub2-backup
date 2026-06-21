@@ -8,8 +8,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { ChevronLeft, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { isValidIban, formatIban } from "@/lib/iban";
@@ -49,7 +63,13 @@ function ClientDetail() {
   });
 
   const createMandate = useMutation({
-    mutationFn: async (m: { mandate_reference: string; iban: string; bic: string | null; debtor_name: string; signature_date: string }) => {
+    mutationFn: async (m: {
+      mandate_reference: string;
+      iban: string;
+      bic: string | null;
+      debtor_name: string;
+      signature_date: string;
+    }) => {
       if (!ws) throw new Error("Sin workspace");
       const { error } = await supabase.from("sepa_mandates").insert({
         workspace_id: ws.id,
@@ -96,18 +116,38 @@ function ClientDetail() {
   return (
     <AppShell title={client?.name ?? "Cliente"}>
       <div className="mx-auto max-w-5xl space-y-6">
-        <Link to="/clients" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
+        <Link
+          to="/clients"
+          className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
+        >
           <ChevronLeft className="mr-1 h-4 w-4" /> Volver a clientes
         </Link>
 
         <Card>
-          <CardHeader><CardTitle>Datos</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle>Datos</CardTitle>
+          </CardHeader>
           <CardContent className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
-            <div><div className="text-xs text-muted-foreground">Nombre</div><div className="font-medium">{client?.name}</div></div>
-            <div><div className="text-xs text-muted-foreground">NIF</div><div>{client?.tax_id ?? "—"}</div></div>
-            <div><div className="text-xs text-muted-foreground">Email</div><div>{client?.email ?? "—"}</div></div>
-            <div><div className="text-xs text-muted-foreground">Teléfono</div><div>{client?.phone ?? "—"}</div></div>
-            <div className="sm:col-span-2"><div className="text-xs text-muted-foreground">IBAN</div><div className="font-mono">{client?.iban ? formatIban(client.iban) : "—"}</div></div>
+            <div>
+              <div className="text-xs text-muted-foreground">Nombre</div>
+              <div className="font-medium">{client?.name}</div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">NIF</div>
+              <div>{client?.tax_id ?? "—"}</div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">Email</div>
+              <div>{client?.email ?? "—"}</div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">Teléfono</div>
+              <div>{client?.phone ?? "—"}</div>
+            </div>
+            <div className="sm:col-span-2">
+              <div className="text-xs text-muted-foreground">IBAN</div>
+              <div className="font-mono">{client?.iban ? formatIban(client.iban) : "—"}</div>
+            </div>
           </CardContent>
         </Card>
 
@@ -115,13 +155,25 @@ function ClientDetail() {
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Mandatos SEPA</CardTitle>
             <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild><Button size="sm"><Plus className="mr-2 h-4 w-4" />Nuevo mandato</Button></DialogTrigger>
+              <DialogTrigger asChild>
+                <Button size="sm">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Nuevo mandato
+                </Button>
+              </DialogTrigger>
               <DialogContent>
-                <DialogHeader><DialogTitle>Nuevo mandato SEPA</DialogTitle></DialogHeader>
+                <DialogHeader>
+                  <DialogTitle>Nuevo mandato SEPA</DialogTitle>
+                </DialogHeader>
                 <form onSubmit={onSubmit} className="space-y-3">
                   <div className="space-y-1.5">
                     <Label htmlFor="mandate_reference">Referencia mandato *</Label>
-                    <Input id="mandate_reference" name="mandate_reference" required maxLength={35} />
+                    <Input
+                      id="mandate_reference"
+                      name="mandate_reference"
+                      required
+                      maxLength={35}
+                    />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="debtor_name">Nombre del deudor</Label>
@@ -129,19 +181,34 @@ function ClientDetail() {
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="iban">IBAN *</Label>
-                    <Input id="iban" name="iban" required defaultValue={client?.iban ?? ""} className="font-mono" />
+                    <Input
+                      id="iban"
+                      name="iban"
+                      required
+                      defaultValue={client?.iban ?? ""}
+                      className="font-mono"
+                    />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1.5">
                       <Label htmlFor="bic">BIC</Label>
-                      <Input id="bic" name="bic" defaultValue={client?.bic ?? ""} className="font-mono" />
+                      <Input
+                        id="bic"
+                        name="bic"
+                        defaultValue={client?.bic ?? ""}
+                        className="font-mono"
+                      />
                     </div>
                     <div className="space-y-1.5">
                       <Label htmlFor="signature_date">Fecha firma *</Label>
                       <Input id="signature_date" name="signature_date" type="date" required />
                     </div>
                   </div>
-                  <DialogFooter><Button type="submit" disabled={createMandate.isPending}>Guardar</Button></DialogFooter>
+                  <DialogFooter>
+                    <Button type="submit" disabled={createMandate.isPending}>
+                      Guardar
+                    </Button>
+                  </DialogFooter>
                 </form>
               </DialogContent>
             </Dialog>
@@ -159,7 +226,14 @@ function ClientDetail() {
               </TableHeader>
               <TableBody>
                 {mandates.length === 0 && (
-                  <TableRow><TableCell colSpan={5} className="text-center py-6 text-sm text-muted-foreground">Sin mandatos.</TableCell></TableRow>
+                  <TableRow>
+                    <TableCell
+                      colSpan={5}
+                      className="text-center py-6 text-sm text-muted-foreground"
+                    >
+                      Sin mandatos.
+                    </TableCell>
+                  </TableRow>
                 )}
                 {mandates.map((m) => (
                   <TableRow key={m.id}>
@@ -168,7 +242,13 @@ function ClientDetail() {
                     <TableCell>{m.signature_date}</TableCell>
                     <TableCell>{m.sequence_type}</TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" onClick={() => { if (confirm("¿Eliminar mandato?")) deleteMandate.mutate(m.id); }}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          if (confirm("¿Eliminar mandato?")) deleteMandate.mutate(m.id);
+                        }}
+                      >
                         <Trash2 className="h-4 w-4 text-muted-foreground" />
                       </Button>
                     </TableCell>

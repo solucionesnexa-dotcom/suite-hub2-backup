@@ -43,7 +43,9 @@ export function AppHeader({ title }: { title?: string }) {
       <h1 className="text-sm font-medium text-foreground">{title}</h1>
       <div className="ml-auto flex items-center gap-2">
         {profile?.rol_global && (
-          <Badge variant="secondary" className="hidden sm:inline-flex">{roleLabels[profile.rol_global]}</Badge>
+          <Badge variant="secondary" className="hidden sm:inline-flex">
+            {roleLabels[profile.rol_global]}
+          </Badge>
         )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -58,7 +60,9 @@ export function AppHeader({ title }: { title?: string }) {
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel className="font-normal">
               <div className="flex flex-col">
-                <span className="text-sm font-medium">{user?.user_metadata?.full_name ?? "Usuario"}</span>
+                <span className="text-sm font-medium">
+                  {user?.user_metadata?.full_name ?? "Usuario"}
+                </span>
                 <span className="text-xs text-muted-foreground">{user?.email}</span>
               </div>
             </DropdownMenuLabel>

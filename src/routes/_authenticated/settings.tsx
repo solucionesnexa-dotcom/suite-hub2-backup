@@ -36,17 +36,35 @@ function SettingsPage() {
     <AppShell title="Ajustes">
       <div className="mx-auto max-w-3xl space-y-6">
         <Card>
-          <CardHeader><CardTitle>Mi cuenta</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle>Mi cuenta</CardTitle>
+          </CardHeader>
           <CardContent className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-            <div><div className="text-xs text-muted-foreground">Email</div><div className="font-medium">{user?.email}</div></div>
-            <div><div className="text-xs text-muted-foreground">Nombre</div><div>{user?.user_metadata?.full_name ?? "—"}</div></div>
+            <div>
+              <div className="text-xs text-muted-foreground">Email</div>
+              <div className="font-medium">{user?.email}</div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">Nombre</div>
+              <div>{user?.user_metadata?.full_name ?? "—"}</div>
+            </div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle>Workspace</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle>Workspace</CardTitle>
+          </CardHeader>
           <CardContent className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-            <div><div className="text-xs text-muted-foreground">Nombre</div><div className="font-medium">{ws?.name ?? "—"}</div></div>
-            <div><div className="text-xs text-muted-foreground">Tu rol</div><div><Badge variant="secondary">{role ?? "—"}</Badge></div></div>
+            <div>
+              <div className="text-xs text-muted-foreground">Nombre</div>
+              <div className="font-medium">{ws?.name ?? "—"}</div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">Tu rol</div>
+              <div>
+                <Badge variant="secondary">{role ?? "—"}</Badge>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>

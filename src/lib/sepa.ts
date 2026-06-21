@@ -36,27 +36,59 @@ const fmtAmount = (n: number) => n.toFixed(2);
 
 export function validateRemittance(input: SepaRemittanceInput): SepaValidationIssue[] {
   const issues: SepaValidationIssue[] = [];
-  if (!input.creditorName?.trim()) issues.push({ field: "creditorName", message: "Falta el nombre del acreedor" });
-  if (!isValidIban(input.creditorIban)) issues.push({ field: "creditorIban", message: "IBAN del acreedor no válido" });
+  if (!input.creditorName?.trim())
+    issues.push({ field: "creditorName", message: "Falta el nombre del acreedor" });
+  if (!isValidIban(input.creditorIban))
+    issues.push({ field: "creditorIban", message: "IBAN del acreedor no válido" });
   if (input.creditorBic && !isValidBic(input.creditorBic))
     issues.push({ field: "creditorBic", message: "BIC del acreedor no válido" });
-  if (!input.creditorId?.trim()) issues.push({ field: "creditorId", message: "Falta el identificador del acreedor (Creditor ID)" });
-  if (!input.collectionDate) issues.push({ field: "collectionDate", message: "Falta la fecha de cobro" });
-  if (!input.invoices.length) issues.push({ field: "invoices", message: "La remesa no contiene facturas" });
+  if (!input.creditorId?.trim())
+    issues.push({
+      field: "creditorId",
+      message: "Falta el identificador del acreedor (Creditor ID)",
+    });
+  if (!input.collectionDate)
+    issues.push({ field: "collectionDate", message: "Falta la fecha de cobro" });
+  if (!input.invoices.length)
+    issues.push({ field: "invoices", message: "La remesa no contiene facturas" });
 
   for (const inv of input.invoices) {
     if (!(inv.amount > 0))
-      issues.push({ invoiceId: inv.invoiceId, field: "amount", message: `Importe inválido en factura ${inv.invoiceNumber}` });
+      issues.push({
+        invoiceId: inv.invoiceId,
+        field: "amount",
+        message: `Importe inválido en factura ${inv.invoiceNumber}`,
+      });
     if (!isValidIban(inv.debtorIban))
-      issues.push({ invoiceId: inv.invoiceId, field: "debtorIban", message: `IBAN deudor inválido en factura ${inv.invoiceNumber}` });
+      issues.push({
+        invoiceId: inv.invoiceId,
+        field: "debtorIban",
+        message: `IBAN deudor inválido en factura ${inv.invoiceNumber}`,
+      });
     if (inv.debtorBic && !isValidBic(inv.debtorBic))
-      issues.push({ invoiceId: inv.invoiceId, field: "debtorBic", message: `BIC deudor inválido en factura ${inv.invoiceNumber}` });
+      issues.push({
+        invoiceId: inv.invoiceId,
+        field: "debtorBic",
+        message: `BIC deudor inválido en factura ${inv.invoiceNumber}`,
+      });
     if (!inv.mandateReference?.trim())
-      issues.push({ invoiceId: inv.invoiceId, field: "mandateReference", message: `Falta mandato en factura ${inv.invoiceNumber}` });
+      issues.push({
+        invoiceId: inv.invoiceId,
+        field: "mandateReference",
+        message: `Falta mandato en factura ${inv.invoiceNumber}`,
+      });
     if (!inv.mandateSignatureDate)
-      issues.push({ invoiceId: inv.invoiceId, field: "mandateSignatureDate", message: `Falta fecha de firma del mandato en factura ${inv.invoiceNumber}` });
+      issues.push({
+        invoiceId: inv.invoiceId,
+        field: "mandateSignatureDate",
+        message: `Falta fecha de firma del mandato en factura ${inv.invoiceNumber}`,
+      });
     if (!inv.debtorName?.trim())
-      issues.push({ invoiceId: inv.invoiceId, field: "debtorName", message: `Falta nombre del deudor en factura ${inv.invoiceNumber}` });
+      issues.push({
+        invoiceId: inv.invoiceId,
+        field: "debtorName",
+        message: `Falta nombre del deudor en factura ${inv.invoiceNumber}`,
+      });
   }
   return issues;
 }

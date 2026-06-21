@@ -10,10 +10,20 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import { Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -26,8 +36,13 @@ export const Route = createFileRoute("/_authenticated/clients")({
 });
 
 type Client = {
-  id: string; name: string; tax_id: string | null; email: string | null;
-  phone: string | null; iban: string | null; created_at: string;
+  id: string;
+  name: string;
+  tax_id: string | null;
+  email: string | null;
+  phone: string | null;
+  iban: string | null;
+  created_at: string;
 };
 
 function ClientsPage() {
@@ -83,7 +98,11 @@ function ClientsPage() {
   });
 
   const filtered = clients.filter((c) =>
-    !q ? true : (c.name + " " + (c.tax_id ?? "") + " " + (c.email ?? "")).toLowerCase().includes(q.toLowerCase()),
+    !q
+      ? true
+      : (c.name + " " + (c.tax_id ?? "") + " " + (c.email ?? ""))
+          .toLowerCase()
+          .includes(q.toLowerCase()),
   );
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -108,11 +127,15 @@ function ClientsPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-2xl font-semibold tracking-tight">Clientes</h2>
-            <p className="text-sm text-muted-foreground">Pymes, clínicas y despachos que gestionas.</p>
+            <p className="text-sm text-muted-foreground">
+              Pymes, clínicas y despachos que gestionas.
+            </p>
           </div>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button><Plus className="mr-2 h-4 w-4" /> Nuevo cliente</Button>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" /> Nuevo cliente
+              </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
@@ -139,10 +162,17 @@ function ClientsPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="iban">IBAN</Label>
-                  <Input id="iban" name="iban" placeholder="ES91 2100 0418 4502 0005 1332" className="font-mono" />
+                  <Input
+                    id="iban"
+                    name="iban"
+                    placeholder="ES91 2100 0418 4502 0005 1332"
+                    className="font-mono"
+                  />
                 </div>
                 <DialogFooter>
-                  <Button type="submit" disabled={createMut.isPending}>Guardar</Button>
+                  <Button type="submit" disabled={createMut.isPending}>
+                    Guardar
+                  </Button>
                 </DialogFooter>
               </form>
             </DialogContent>
@@ -151,7 +181,12 @@ function ClientsPage() {
 
         <div className="relative max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar cliente..." className="pl-9" />
+          <Input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Buscar cliente..."
+            className="pl-9"
+          />
         </div>
 
         <Card className="overflow-hidden">
@@ -167,25 +202,42 @@ function ClientsPage() {
             </TableHeader>
             <TableBody>
               {isLoading && (
-                <TableRow><TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-8">Cargando...</TableCell></TableRow>
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-8">
+                    Cargando...
+                  </TableCell>
+                </TableRow>
               )}
               {!isLoading && filtered.length === 0 && (
-                <TableRow><TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-8">Sin clientes todavía.</TableCell></TableRow>
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-8">
+                    Sin clientes todavía.
+                  </TableCell>
+                </TableRow>
               )}
               {filtered.map((c) => (
                 <TableRow key={c.id}>
                   <TableCell>
-                    <Link to="/clients/$id" params={{ id: c.id }} className="font-medium hover:underline">
+                    <Link
+                      to="/clients/$id"
+                      params={{ id: c.id }}
+                      className="font-medium hover:underline"
+                    >
                       {c.name}
                     </Link>
                   </TableCell>
                   <TableCell className="text-muted-foreground">{c.tax_id ?? "—"}</TableCell>
                   <TableCell className="text-muted-foreground">{c.email ?? "—"}</TableCell>
-                  <TableCell className="font-mono text-xs">{c.iban ? formatIban(c.iban) : "—"}</TableCell>
+                  <TableCell className="font-mono text-xs">
+                    {c.iban ? formatIban(c.iban) : "—"}
+                  </TableCell>
                   <TableCell className="text-right">
                     <Button
-                      variant="ghost" size="icon"
-                      onClick={() => { if (confirm(`¿Eliminar ${c.name}?`)) deleteMut.mutate(c.id); }}
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        if (confirm(`¿Eliminar ${c.name}?`)) deleteMut.mutate(c.id);
+                      }}
                     >
                       <Trash2 className="h-4 w-4 text-muted-foreground" />
                     </Button>

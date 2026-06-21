@@ -19,7 +19,10 @@ function DashboardPage() {
       const [clients, invoices, pending, remittances] = await Promise.all([
         supabase.from("clients").select("id", { count: "exact", head: true }),
         supabase.from("invoices").select("id", { count: "exact", head: true }),
-        supabase.from("invoices").select("id", { count: "exact", head: true }).eq("status", "pending"),
+        supabase
+          .from("invoices")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "pending"),
         supabase.from("remittances").select("id", { count: "exact", head: true }),
       ]);
       return {
@@ -34,7 +37,12 @@ function DashboardPage() {
   const cards = [
     { label: "Clientes", value: stats?.clients ?? 0, icon: Users, to: "/clients" },
     { label: "Facturas", value: stats?.invoices ?? 0, icon: FileText, to: "/digifactu" },
-    { label: "Pendientes de remesar", value: stats?.pending ?? 0, icon: AlertCircle, to: "/digifactu" },
+    {
+      label: "Pendientes de remesar",
+      value: stats?.pending ?? 0,
+      icon: AlertCircle,
+      to: "/digifactu",
+    },
     { label: "Remesas generadas", value: stats?.remittances ?? 0, icon: Send, to: "/digifactu" },
   ];
 
@@ -71,9 +79,15 @@ function DashboardPage() {
             <CardTitle className="text-base">Acciones rápidas</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
-            <Button asChild variant="outline"><Link to="/clients">Nuevo cliente</Link></Button>
-            <Button asChild><Link to="/digifactu">Importar facturas</Link></Button>
-            <Button asChild variant="secondary"><Link to="/digifactu">Generar remesa SEPA</Link></Button>
+            <Button asChild variant="outline">
+              <Link to="/clients">Nuevo cliente</Link>
+            </Button>
+            <Button asChild>
+              <Link to="/digifactu">Importar facturas</Link>
+            </Button>
+            <Button asChild variant="secondary">
+              <Link to="/digifactu">Generar remesa SEPA</Link>
+            </Button>
           </CardContent>
         </Card>
       </div>
