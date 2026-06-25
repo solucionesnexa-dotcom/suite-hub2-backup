@@ -11,1072 +11,1364 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
- Table,
- TableBody,
- TableCell,
- TableHead,
- TableHeader,
- TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import {
- Dialog,
- DialogContent,
- DialogFooter,
- DialogHeader,
- DialogTitle,
- DialogTrigger,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
- Select,
- SelectContent,
- SelectItem,
- SelectTrigger,
- SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Upload, Send, Download, Trash2, AlertTriangle } from "lucide-react";
+import { Plus, Upload, Send, Download, Trash2, AlertTriangle, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { parseCsv, parseAmount, parseDate } from "@/lib/csv";
 import {
- generateSepaXml,
- validateRemittance,
- downloadXml,
- type SepaInvoiceInput,
+  generateSepaXml,
+  validateRemittance,
+  downloadXml,
+  type SepaInvoiceInput,
 } from "@/lib/sepa";
 import type { Tables } from "@/integrations/supabase/types";
 
 export const Route = createFileRoute("/_authenticated/factunexa")({
- ssr: false,
- head: () => ({ meta: [{ title: "FactuNexa · Nexa Suite" }] }),
- component: FactuNexaPage,
+  ssr: false,
+  head: () => ({ meta: [{ title: "FactuNexa · Nexa Suite" }] }),
+  component: FactuNexaPage,
 });
 
 type PaymentMethod = "transferencia" | "efectivo" | "bizum" | "tarjeta" | "paypal" | "cheque" | "otro";
 type PaymentStatus = "pending" | "paid";
 
 const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
- { value: "transferencia", label: "Transferencia bancaria" },
- { value: "efectivo", label: "Efectivo" },
- { value: "bizum", label: "Bizum" },
- { value: "tarjeta", label: "Tarjeta" },
- { value: "paypal", label: "PayPal" },
- { value: "cheque", label: "Cheque" },
- { value: "otro", label: "Otro" },
+  { value: "transferencia", label: "Transferencia bancaria" },
+  { value: "efectivo",      label: "Efectivo" },
+  { value: "bizum",         label: "Bizum" },
+  { value: "tarjeta",       label: "Tarjeta" },
+  { value: "paypal",        label: "PayPal" },
+  { value: "cheque",        label: "Cheque" },
+  { value: "otro",          label: "Otro" },
 ];
+
 type Invoice = {
- id: string;
- client_id: string;
- mandate_id: string | null;
- invoice_number: string;
- issue_date: string;
- due_date: string;
- amount: number;
- currency: string;
- concept: string | null;
- pdf_path: string | null;
- status: string;
- payment_method: PaymentMethod;
- payment_status: PaymentStatus;
- paid_at: string | null;
+  id: string;
+  client_id: string;
+  mandate_id: string | null;
+  invoice_number: string;
+  issue_date: string;
+  due_date: string;
+  amount: number;
+  currency: string;
+  concept: string | null;
+  pdf_path: string | null;
+  status: string;
+  payment_method: PaymentMethod;
+  payment_status: PaymentStatus;
+  paid_at: string | null;
 };
 
 type ClientLite = {
- id: string;
- name: string;
- iban: string | null;
- bic: string | null;
+  id: string;
+  name: string;
+  iban: string | null;
+  bic: string | null;
 };
 
 type SepaMandate = Tables<"sepa_mandates">;
 
 function FactuNexaPage() {
- return (
-  <AppShell title="FactuNexa">
-   <div className="mx-auto max-w-7xl space-y-6">
-    <div>
-     <h2 className="text-2xl font-semibold tracking-tight">FactuNexa</h2>
-     <p className="text-sm text-muted-foreground">
-      Importa facturas y genera remesas SEPA pain.008.001.02.
-     </p>
-    </div>
-    <Tabs defaultValue="invoices">
-     <TabsList>
-      <TabsTrigger value="invoices">Facturas</TabsTrigger>
-      <TabsTrigger value="remit">Generar remesa</TabsTrigger>
-      <TabsTrigger value="history">Histórico</TabsTrigger>
-     </TabsList>
-     <TabsContent value="invoices">
-      <InvoicesTab />
-     </TabsContent>
-     <TabsContent value="remit">
-      <RemittanceTab />
-     </TabsContent>
-     <TabsContent value="history">
-      <HistoryTab />
-     </TabsContent>
-    </Tabs>
-   </div>
-  </AppShell>
- );
+  return (
+    <AppShell title="FactuNexa">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <div>
+          <h2 className="text-2xl font-semibold tracking-tight">FactuNexa</h2>
+          <p className="text-sm text-muted-foreground">
+            Importa facturas y genera remesas SEPA pain.008.001.02.
+          </p>
+        </div>
+        <Tabs defaultValue="invoices">
+          <TabsList>
+            <TabsTrigger value="invoices">Facturas</TabsTrigger>
+            <TabsTrigger value="clients">Clientes</TabsTrigger>
+            <TabsTrigger value="remit">Generar remesa</TabsTrigger>
+            <TabsTrigger value="history">Histórico</TabsTrigger>
+          </TabsList>
+          <TabsContent value="invoices">
+            <InvoicesTab />
+          </TabsContent>
+          <TabsContent value="clients">
+            <ClientsTab />
+          </TabsContent>
+          <TabsContent value="remit">
+            <RemittanceTab />
+          </TabsContent>
+          <TabsContent value="history">
+            <HistoryTab />
+          </TabsContent>
+        </Tabs>
+      </div>
+    </AppShell>
+  );
 }
 
 function useClients() {
- return useQuery({
-  queryKey: ["clients-lite"],
-  queryFn: async (): Promise<ClientLite[]> => {
-   const { data, error } = await supabase
-    .from("clients")
-    .select("id, name, iban, bic")
-    .order("name");
-   if (error) throw error;
-   return data ?? [];
-  },
- });
+  return useQuery({
+    queryKey: ["clients-lite"],
+    queryFn: async (): Promise<ClientLite[]> => {
+      const { data, error } = await supabase
+        .from("clients")
+        .select("id, name, iban, bic")
+        .order("name");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
 }
 
 function useInvoices() {
- return useQuery({
-  queryKey: ["invoices"],
-  queryFn: async (): Promise<Invoice[]> => {
-   const { data, error } = await supabase
-    .from("invoices")
-    .select(
-     "id, client_id, mandate_id, invoice_number, issue_date, due_date, amount, currency, concept, pdf_path, status, payment_method, payment_status, paid_at",
-    )
-    .order("due_date", { ascending: false });
-   if (error) throw error;
-   return (data ?? []).map((i) => ({
-    ...i,
-    amount: Number(i.amount),
-    payment_method: (i.payment_method as PaymentMethod) ?? "transferencia",
-    payment_status: (i.payment_status as PaymentStatus) ?? "pending",
-    paid_at: i.paid_at ?? null,
-   }));
-  },
- });
+  return useQuery({
+    queryKey: ["invoices"],
+    queryFn: async (): Promise<Invoice[]> => {
+      const { data, error } = await supabase
+        .from("invoices")
+        .select(
+          "id, client_id, mandate_id, invoice_number, issue_date, due_date, amount, currency, concept, pdf_path, status, payment_method, payment_status, paid_at",
+        )
+        .order("due_date", { ascending: false });
+      if (error) throw error;
+      return (data ?? []).map((i) => ({
+        ...i,
+        amount: Number(i.amount),
+        payment_method: (i.payment_method as PaymentMethod) ?? "transferencia",
+        payment_status: (i.payment_status as PaymentStatus) ?? "pending",
+        paid_at: i.paid_at ?? null,
+      }));
+    },
+  });
 }
-function InvoicesTab() {
- const qc = useQueryClient();
- const { data: ws } = useCurrentWorkspace();
- const canEdit = useCanEdit();
- const { data: clients = [] } = useClients();
- const { data: invoices = [], isLoading } = useInvoices();
- const [open, setOpen] = useState(false);
- const [pdfOpen, setPdfOpen] = useState(false);
- const [pdfFile, setPdfFile] = useState<File | null>(null);
- const fileRef = useRef<HTMLInputElement>(null);
- const pdfRef = useRef<HTMLInputElement>(null);
 
- const createMut = useMutation({
-  mutationFn: async (
-   payload: Omit<Invoice, "id" | "currency" | "pdf_path" | "status" | "payment_method" | "payment_status" | "paid_at"> & {
-    status?: string;
-   },
-  ) => {
-   if (!ws) throw new Error("Sin workspace");
-   const { error } = await supabase.from("invoices").insert({
-    workspace_id: ws.id,
-    client_id: payload.client_id,
-    invoice_number: payload.invoice_number,
-    issue_date: payload.issue_date,
-    due_date: payload.due_date,
-    amount: payload.amount,
-    concept: payload.concept,
-    status: "pending",
-   });
-   if (error) throw error;
-  },
-  onSuccess: () => {
-   toast.success("Factura creada");
-   qc.invalidateQueries({ queryKey: ["invoices"] });
-   setOpen(false);
-  },
-  onError: (e: Error) => toast.error(e.message),
- });
+/* ─────────────────────────────────────────────
+   CLIENTES TAB
+───────────────────────────────────────────── */
+function ClientsTab() {
+  const qc = useQueryClient();
+  const canEdit = useCanEdit();
+  const { data: clients = [], isLoading } = useClients();
+  const [editingClient, setEditingClient] = useState<ClientLite | null>(null);
 
- const deleteMut = useMutation({
-  mutationFn: async (id: string) => {
-   const { error } = await supabase.from("invoices").delete().eq("id", id);
-   if (error) throw error;
-  },
-  onSuccess: () => qc.invalidateQueries({ queryKey: ["invoices"] }),
- });
+  const updateClientMut = useMutation({
+    mutationFn: async (payload: ClientLite) => {
+      const { error } = await supabase
+        .from("clients")
+        .update({ name: payload.name, iban: payload.iban, bic: payload.bic })
+        .eq("id", payload.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Cliente actualizado");
+      qc.invalidateQueries({ queryKey: ["clients-lite"] });
+      setEditingClient(null);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
- const toggleStatusMut = useMutation({
-  mutationFn: async ({ id, status }: { id: string; status: PaymentStatus }) => {
-   const payload: { payment_status: PaymentStatus; paid_at: string | null } = {
-    payment_status: status,
-    paid_at: status === "paid" ? new Date().toISOString() : null,
-   };
-   const { error } = await supabase.from("invoices").update(payload).eq("id", id);
-   if (error) throw error;
-  },
-  onSuccess: () => {
-   toast.success("Estado actualizado");
-   qc.invalidateQueries({ queryKey: ["invoices"] });
-  },
-  onError: (e: Error) => toast.error(e.message),
- });
-
- const updatePaymentMethodMut = useMutation({
-  mutationFn: async ({ id, method }: { id: string; method: PaymentMethod }) => {
-   const { error } = await supabase.from("invoices").update({ payment_method: method }).eq("id", id);
-   if (error) throw error;
-  },
-  onSuccess: () => {
-   toast.success("Método actualizado");
-   qc.invalidateQueries({ queryKey: ["invoices"] });
-  },
-  onError: (e: Error) => toast.error(e.message),
- });
-
- const importMut = useMutation({
-  mutationFn: async (file: File) => {
-   if (!ws) throw new Error("Sin workspace");
-   const text = await file.text();
-   const rows = parseCsv(text);
-   if (!rows.length) throw new Error("CSV vacío");
-   const byName = new Map(clients.map((c) => [c.name.toLowerCase(), c.id]));
-   const toInsert: Array<{
-    workspace_id: string;
-    client_id: string;
-    invoice_number: string;
-    amount: number;
-    issue_date: string;
-    due_date: string;
-    concept: string | null;
-    source: string;
-    status: "pending";
-   }> = [];
-   const errors: string[] = [];
-   for (const [i, r] of rows.entries()) {
-    const clientKey = (r.client || r.cliente || r.client_name || "").toLowerCase();
-    const client_id = byName.get(clientKey);
-    if (!client_id) {
-     errors.push(`Fila ${i + 2}: cliente "${r.client || r.cliente}" no encontrado`);
-     continue;
-    }
-    const amount = parseAmount(r.amount || r.importe || r.total || "");
-    if (!isFinite(amount) || amount <= 0) {
-     errors.push(`Fila ${i + 2}: importe inválido`);
-     continue;
-    }
-    const invoice_number = r.invoice_number || r.numero || r.number || r.factura || "";
-    if (!invoice_number) {
-     errors.push(`Fila ${i + 2}: falta número`);
-     continue;
-    }
-    const due_date =
-     parseDate(r.due_date || r.vencimiento || "") || new Date().toISOString().slice(0, 10);
-    const issue_date = parseDate(r.issue_date || r.fecha || "") || due_date;
-    toInsert.push({
-     workspace_id: ws.id,
-     client_id,
-     invoice_number,
-     amount,
-     issue_date,
-     due_date,
-     concept: r.concept || r.concepto || null,
-     source: "csv",
-     status: "pending",
+  function onEditClientSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!editingClient) return;
+    const fd = new FormData(e.currentTarget);
+    updateClientMut.mutate({
+      id: editingClient.id,
+      name: String(fd.get("name") ?? "").trim(),
+      iban: String(fd.get("iban") ?? "").trim() || null,
+      bic: String(fd.get("bic") ?? "").trim() || null,
     });
-   }
-   if (!toInsert.length) throw new Error(errors[0] || "No se pudo importar ninguna fila");
-   const { error } = await supabase.from("invoices").insert(toInsert);
-   if (error) throw error;
-   return { inserted: toInsert.length, errors };
-  },
-  onSuccess: (res) => {
-   toast.success(`${res.inserted} facturas importadas`);
-   if (res.errors.length) toast.warning(`${res.errors.length} filas omitidas`);
-   qc.invalidateQueries({ queryKey: ["invoices"] });
-  },
-  onError: (e: Error) => toast.error(e.message),
- });
- const importPdfMut = useMutation({
-  mutationFn: async (payload: {
-   file: File;
-   client_id: string;
-   invoice_number: string;
-   amount: number;
-   issue_date: string;
-   due_date: string;
-   concept: string | null;
-  }) => {
-   if (!ws) throw new Error("Sin workspace");
-   const { file } = payload;
-   if (file.type !== "application/pdf") {
-    throw new Error("Solo se admiten archivos PDF");
-   }
-   const safeName = file.name
-    .replace(/\.pdf$/i, "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9._-]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 80);
-   const path = `${ws.id}/${Date.now()}-${safeName || "factura"}.pdf`;
-   const { error } = await supabase.storage.from("facturas").upload(path, file, {
-    contentType: "application/pdf",
-    upsert: false,
-   });
-   if (error) {
-    throw new Error(
-     error.message.includes("Bucket not found")
-      ? "No existe el bucket facturas. Aplica la migración de Storage antes de importar PDFs."
-      : error.message,
-    );
-   }
-   const { error: insertError } = await supabase.from("invoices").insert({
-    workspace_id: ws.id,
-    client_id: payload.client_id,
-    invoice_number: payload.invoice_number,
-    issue_date: payload.issue_date,
-    due_date: payload.due_date,
-    amount: payload.amount,
-    concept: payload.concept,
-    pdf_path: path,
-    source: "pdf",
-    status: "pending",
-   });
-   if (insertError) throw insertError;
-   return path;
-  },
-  onSuccess: () => {
-   toast.success("PDF subido y factura creada");
-   setPdfOpen(false);
-   setPdfFile(null);
-   qc.invalidateQueries({ queryKey: ["invoices"] });
-  },
-  onError: (e: Error) => toast.error(e.message),
- });
-
- function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-  e.preventDefault();
-  const fd = new FormData(e.currentTarget);
-  const amount = Number(fd.get("amount"));
-  if (!isFinite(amount) || amount <= 0) {
-   return toast.error("Importe inválido");
   }
-  createMut.mutate({
-   client_id: String(fd.get("client_id")),
-   mandate_id: null,
-   invoice_number: String(fd.get("invoice_number")),
-   issue_date: String(fd.get("issue_date")),
-   due_date: String(fd.get("due_date")),
-   amount,
-   concept: String(fd.get("concept") ?? "") || null,
-  });
- }
 
- const clientName = (id: string) => clients.find((c) => c.id === id)?.name ?? "—";
+  return (
+    <div className="space-y-4">
+      {/* Modal editar cliente */}
+      <Dialog open={!!editingClient} onOpenChange={(o) => { if (!o) setEditingClient(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar cliente</DialogTitle>
+          </DialogHeader>
+          {editingClient && (
+            <form onSubmit={onEditClientSubmit} className="space-y-3">
+              <div className="space-y-1.5">
+                <Label>Nombre *</Label>
+                <Input name="name" defaultValue={editingClient.name} required />
+              </div>
+              <div className="space-y-1.5">
+                <Label>IBAN</Label>
+                <Input name="iban" defaultValue={editingClient.iban ?? ""} className="font-mono" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>BIC</Label>
+                <Input name="bic" defaultValue={editingClient.bic ?? ""} className="font-mono" />
+              </div>
+              <DialogFooter>
+                <Button type="submit" disabled={updateClientMut.isPending}>Guardar cambios</Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
 
- function handlePdfChange(e: React.ChangeEvent<HTMLInputElement>) {
-  const file = e.target.files?.[0];
-  if (file) {
-   setPdfFile(file);
-   setPdfOpen(true);
-  }
-  e.currentTarget.value = "";
- }
-
- function onPdfSubmit(e: React.FormEvent<HTMLFormElement>) {
-  e.preventDefault();
-  if (!pdfFile) {
-   return toast.error("Selecciona un PDF");
-  }
-  const fd = new FormData(e.currentTarget);
-  const amount = Number(fd.get("amount"));
-  if (!isFinite(amount) || amount <= 0) {
-   return toast.error("Importe inválido");
-  }
-  importPdfMut.mutate({
-   file: pdfFile,
-   client_id: String(fd.get("client_id")),
-   invoice_number: String(fd.get("invoice_number")),
-   issue_date: String(fd.get("issue_date")),
-   due_date: String(fd.get("due_date")),
-   amount,
-   concept: String(fd.get("concept") ?? "") || null,
-  });
- }
- return (
-  <div className="space-y-4">
-   <div className="flex flex-wrap gap-2">
-    {/* CSV */}
-    <input
-     ref={fileRef}
-     type="file"
-     accept=".csv,text/csv"
-     className="hidden"
-     onChange={(e) => {
-      const f = e.target.files?.[0];
-      if (f) importMut.mutate(f);
-      e.currentTarget.value = "";
-     }}
-    />
-    <Button
-     variant="outline"
-     onClick={() => fileRef.current?.click()}
-     disabled={!canEdit || importMut.isPending}
-    >
-     <Upload className="mr-2 h-4 w-4" /> Importar CSV
-    </Button>
-    {/* PDF */}
-    <input
-     ref={pdfRef}
-     type="file"
-     accept="application/pdf"
-     className="hidden"
-     onChange={handlePdfChange}
-    />
-    <Button
-     variant="outline"
-     onClick={() => pdfRef.current?.click()}
-     disabled={!canEdit || importPdfMut.isPending}
-    >
-     <Upload className="mr-2 h-4 w-4" /> Importar PDF
-    </Button>
-    <Dialog
-     open={pdfOpen}
-     onOpenChange={(next) => {
-      setPdfOpen(next);
-      if (!next) setPdfFile(null);
-     }}
-    >
-     <DialogContent>
-      <DialogHeader>
-       <DialogTitle>Importar factura PDF</DialogTitle>
-      </DialogHeader>
-      <form onSubmit={onPdfSubmit} className="space-y-3">
-       <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm">
-        <div className="truncate font-medium">{pdfFile?.name}</div>
-        <div className="text-xs text-muted-foreground">
-         El PDF se guardará y quedará vinculado a la factura.
-        </div>
-       </div>
-       <div className="space-y-1.5">
-        <Label>Cliente *</Label>
-        <Select name="client_id" required>
-         <SelectTrigger>
-          <SelectValue placeholder="Selecciona cliente" />
-         </SelectTrigger>
-         <SelectContent>
-          {clients.map((c) => (
-           <SelectItem key={c.id} value={c.id}>
-            {c.name}
-           </SelectItem>
-          ))}
-         </SelectContent>
-        </Select>
-       </div>
-       <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-         <Label>Número *</Label>
-         <Input name="invoice_number" required />
-        </div>
-        <div className="space-y-1.5">
-         <Label>Importe (€) *</Label>
-         <Input name="amount" type="number" step="0.01" required />
-        </div>
-        <div className="space-y-1.5">
-         <Label>Emisión</Label>
-         <Input
-          name="issue_date"
-          type="date"
-          defaultValue={new Date().toISOString().slice(0, 10)}
-         />
-        </div>
-        <div className="space-y-1.5">
-         <Label>Vencimiento *</Label>
-         <Input
-          name="due_date"
-          type="date"
-          required
-          defaultValue={new Date().toISOString().slice(0, 10)}
-         />
-        </div>
-       </div>
-       <div className="space-y-1.5">
-        <Label>Concepto</Label>
-        <Input name="concept" />
-       </div>
-       <DialogFooter>
-        <Button type="submit" disabled={importPdfMut.isPending}>
-         Crear factura
-        </Button>
-       </DialogFooter>
-      </form>
-     </DialogContent>
-    </Dialog>
-    <Dialog open={open} onOpenChange={setOpen}>
-     <DialogTrigger asChild>
-      <Button disabled={!canEdit}>
-       <Plus className="mr-2 h-4 w-4" /> Nueva factura
-      </Button>
-     </DialogTrigger>
-     <DialogContent>
-      <DialogHeader>
-       <DialogTitle>Nueva factura</DialogTitle>
-      </DialogHeader>
-      <form onSubmit={onSubmit} className="space-y-3">
-       <div className="space-y-1.5">
-        <Label>Cliente *</Label>
-        <Select name="client_id" required>
-         <SelectTrigger>
-          <SelectValue placeholder="Selecciona cliente" />
-         </SelectTrigger>
-         <SelectContent>
-          {clients.map((c) => (
-           <SelectItem key={c.id} value={c.id}>
-            {c.name}
-           </SelectItem>
-          ))}
-         </SelectContent>
-        </Select>
-       </div>
-       <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-         <Label>Número *</Label>
-         <Input name="invoice_number" required />
-        </div>
-        <div className="space-y-1.5">
-         <Label>Importe (€) *</Label>
-         <Input name="amount" type="number" step="0.01" required />
-        </div>
-        <div className="space-y-1.5">
-         <Label>Emisión</Label>
-         <Input
-          name="issue_date"
-          type="date"
-          defaultValue={new Date().toISOString().slice(0, 10)}
-         />
-        </div>
-        <div className="space-y-1.5">
-         <Label>Vencimiento *</Label>
-         <Input
-          name="due_date"
-          type="date"
-          required
-          defaultValue={new Date().toISOString().slice(0, 10)}
-         />
-        </div>
-       </div>
-       <div className="space-y-1.5">
-        <Label>Concepto</Label>
-        <Input name="concept" />
-       </div>
-       <div className="space-y-1.5">
-        <Label>Método de pago</Label>
-        <Select name="payment_method" defaultValue="transferencia">
-         <SelectTrigger>
-          <SelectValue placeholder="Selecciona método" />
-         </SelectTrigger>
-         <SelectContent>
-          {PAYMENT_METHODS.map((m) => (
-           <SelectItem key={m.value} value={m.value}>
-            {m.label}
-           </SelectItem>
-          ))}
-         </SelectContent>
-        </Select>
-       </div>
-       <div className="space-y-1.5">
-        <Label>Estado inicial</Label>
-        <Select name="payment_status" defaultValue="pending">
-         <SelectTrigger>
-          <SelectValue placeholder="Selecciona estado" />
-         </SelectTrigger>
-         <SelectContent>
-          <SelectItem value="pending">⏳ Pendiente</SelectItem>
-          <SelectItem value="paid">✓ Pagada</SelectItem>
-         </SelectContent>
-        </Select>
-       </div>
-       <DialogFooter>
-        <Button type="submit">Guardar</Button>
-       </DialogFooter>
-      </form>
-     </DialogContent>
-    </Dialog>
-   </div>
-   <Card>
-    <CardContent className="p-0">
-     <Table>
-      <TableHeader>
-       <TableRow>
-        <TableHead>Número</TableHead>
-        <TableHead>Cliente</TableHead>
-        <TableHead>Vencimiento</TableHead>
-        <TableHead className="text-right">Importe</TableHead>
-        <TableHead>Método</TableHead>
-        <TableHead>Estado</TableHead>
-        <TableHead></TableHead>
-       </TableRow>
-      </TableHeader>
-      <TableBody>
-       {isLoading && (
-        <TableRow>
-         <TableCell colSpan={7} className="text-center py-8 text-sm text-muted-foreground">
-          Cargando...
-         </TableCell>
-        </TableRow>
-       )}
-       {!isLoading && invoices.length === 0 && (
-        <TableRow>
-         <TableCell colSpan={7} className="text-center py-8 text-sm text-muted-foreground">
-          Sin facturas. Crea una, importa un CSV o sube un PDF.
-         </TableCell>
-        </TableRow>
-       )}
-       {invoices.map((inv) => (
-        <TableRow key={inv.id}>
-         <TableCell className="font-mono text-xs">{inv.invoice_number}</TableCell>
-         <TableCell>{clientName(inv.client_id)}</TableCell>
-         <TableCell>{inv.due_date}</TableCell>
-         <TableCell className="text-right font-mono tabular-nums">
-          {inv.amount.toFixed(2)} €
-         </TableCell>
-         <TableCell>
-          <Select
-           value={inv.payment_method}
-           onValueChange={(v) =>
-            updatePaymentMethodMut.mutate({
-             id: inv.id,
-             method: v as PaymentMethod,
-            })
-           }
-           disabled={updatePaymentMethodMut.isPending && toggleStatusMut.isPending}
-          >
-           <SelectTrigger className="h-8 w-auto min-w-[120px] text-xs border-none bg-transparent focus:ring-0 shadow-none">
-            <SelectValue />
-           </SelectTrigger>
-           <SelectContent>
-            {PAYMENT_METHODS.map((m) => (
-             <SelectItem key={m.value} value={m.value}>
-              {m.label}
-             </SelectItem>
-            ))}
-           </SelectContent>
-          </Select>
-         </TableCell>
-         <TableCell>
-          <div className="flex items-center gap-2">
-           <Badge
-            variant={
-             inv.payment_status === "paid"
-              ? "default"
-              : inv.status === "included"
-              ? "secondary"
-              : "outline"
-            }
-            className={
-             inv.payment_status === "paid"
-              ? "bg-green-600 hover:bg-green-700"
-              : inv.status === "included"
-              ? ""
-              : "border-amber-500 text-amber-700"
-            }
-           >
-            {inv.payment_status === "paid"
-             ? "✓ Pagada"
-             : inv.status === "included"
-             ? inv.status
-             : "⏳ Pendiente"}
-           </Badge>
-           <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 text-xs text-muted-foreground"
-            disabled={
-             !canEdit ||
-             updatePaymentMethodMut.isPending ||
-             toggleStatusMut.isPending
-            }
-            onClick={() =>
-             toggleStatusMut.mutate({
-              id: inv.id,
-              status: inv.payment_status === "pending" ? "paid" : "pending",
-             })
-            }
-           >
-            {inv.payment_status === "pending"
-             ? "Marcar pagada"
-             : "Marcar pendiente"}
-           </Button>
-          </div>
-         </TableCell>
-         <TableCell className="text-right">
-          <Button
-           variant="ghost"
-           size="icon"
-           disabled={!canEdit}
-           onClick={() => {
-            if (confirm("¿Eliminar factura?")) deleteMut.mutate(inv.id);
-           }}
-          >
-           <Trash2 className="h-4 w-4 text-muted-foreground" />
-          </Button>
-         </TableCell>
-        </TableRow>
-       ))}
-      </TableBody>
-     </Table>
-    </CardContent>
-   </Card>
-   <p className="text-xs text-muted-foreground">
-    CSV admite columnas:{" "}
-    <code>client,invoice_number,amount,due_date,issue_date,concept</code>{" "}
-    (también acepta nombres en español: cliente, numero, importe, vencimiento, fecha, concepto).
-   </p>
-  </div>
- );
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nombre</TableHead>
+                <TableHead>IBAN</TableHead>
+                <TableHead>BIC</TableHead>
+                <TableHead></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading && (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center py-8 text-sm text-muted-foreground">
+                    Cargando...
+                  </TableCell>
+                </TableRow>
+              )}
+              {!isLoading && clients.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center py-8 text-sm text-muted-foreground">
+                    Sin clientes.
+                  </TableCell>
+                </TableRow>
+              )}
+              {clients.map((c) => (
+                <TableRow key={c.id}>
+                  <TableCell className="font-medium">{c.name}</TableCell>
+                  <TableCell className="font-mono text-xs">{c.iban ?? "—"}</TableCell>
+                  <TableCell className="font-mono text-xs">{c.bic ?? "—"}</TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      disabled={!canEdit}
+                      onClick={() => setEditingClient(c)}
+                    >
+                      <Pencil className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
 }
-function RemittanceTab() {
- const qc = useQueryClient();
- const { data: ws } = useCurrentWorkspace();
- const canEdit = useCanEdit();
- const { data: invoices = [] } = useInvoices();
- const { data: clients = [] } = useClients();
- const [selected, setSelected] = useState<Set<string>>(new Set());
- const [creditorName, setCreditorName] = useState("");
- const [creditorIban, setCreditorIban] = useState("");
- const [creditorBic, setCreditorBic] = useState("");
- const [creditorId, setCreditorId] = useState("");
- const [collectionDate, setCollectionDate] = useState(
-  new Date(Date.now() + 5 * 86400000).toISOString().slice(0, 10),
- );
- const [issues, setIssues] = useState<string[]>([]);
- const pending = invoices.filter((i) => i.payment_status === "pending");
- const { data: mandatesByClient = new Map<string, SepaMandate>() } = useQuery({
-  queryKey: ["all-mandates"],
-  queryFn: async () => {
-   const { data, error } = await supabase
-    .from("sepa_mandates")
-    .select("*")
-    .eq("is_active", true);
-   if (error) throw error;
-   const map = new Map<string, SepaMandate>();
-   for (const m of data ?? []) if (!map.has(m.client_id)) map.set(m.client_id, m);
-   return map;
-  },
- });
- const total = invoices.filter((i) => selected.has(i.id)).reduce((s, i) => s + i.amount, 0);
- function toggle(id: string) {
-  setSelected((prev) => {
-   const n = new Set(prev);
-   if (n.has(id)) {
-    n.delete(id);
-   } else {
-    n.add(id);
-   }
-   return n;
-  });
- }
- function buildInput() {
-  const sepaInvoices: SepaInvoiceInput[] = [];
-  for (const inv of invoices.filter((i) => selected.has(i.id))) {
-   const client = clients.find((c) => c.id === inv.client_id);
-   const mandate = mandatesByClient.get(inv.client_id);
-   sepaInvoices.push({
-    invoiceId: inv.id,
-    invoiceNumber: inv.invoice_number,
-    amount: inv.amount,
-    concept: inv.concept,
-    debtorName: client?.name ?? "",
-    debtorIban: mandate?.iban ?? client?.iban ?? "",
-    debtorBic: mandate?.bic ?? client?.bic ?? null,
-    mandateReference: mandate?.mandate_reference ?? "",
-    mandateSignatureDate: mandate?.signature_date ?? "",
-    sequenceType: mandate?.sequence_type ?? "RCUR",
-   });
+
+/* ─────────────────────────────────────────────
+   FACTURAS TAB
+───────────────────────────────────────────── */
+function InvoicesTab() {
+  const qc = useQueryClient();
+  const { data: ws } = useCurrentWorkspace();
+  const canEdit = useCanEdit();
+  const { data: clients = [] } = useClients();
+  const { data: invoices = [], isLoading } = useInvoices();
+  const [open, setOpen] = useState(false);
+  const [pdfOpen, setPdfOpen] = useState(false);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const pdfRef = useRef<HTMLInputElement>(null);
+
+  // Estado edición
+  const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
+  const [editClientId, setEditClientId] = useState("");
+  const [editPaymentMethod, setEditPaymentMethod] = useState<PaymentMethod>("transferencia");
+  const [editPaymentStatus, setEditPaymentStatus] = useState<PaymentStatus>("pending");
+
+  function openEditDialog(inv: Invoice) {
+    setEditingInvoice(inv);
+    setEditClientId(inv.client_id);
+    setEditPaymentMethod(inv.payment_method);
+    setEditPaymentStatus(inv.payment_status);
   }
-  const messageId = `NEXA-${Date.now()}`;
-  return {
-   messageId,
-   creditorName,
-   creditorIban,
-   creditorBic: creditorBic || null,
-   creditorId,
-   collectionDate,
-   invoices: sepaInvoices,
-  };
- }
- const generateMut = useMutation({
-  mutationFn: async () => {
-   if (!ws) throw new Error("Sin workspace");
-   const input = buildInput();
-   const found = validateRemittance(input);
-   if (found.length) {
-    setIssues(found.map((f) => f.message));
-    throw new Error("Validación fallida");
-   }
-   setIssues([]);
-   const xml = generateSepaXml(input);
-   const { data: rem, error } = await supabase
-    .from("remittances")
-    .insert({
-     workspace_id: ws.id,
-     message_id: input.messageId,
-     creditor_name: input.creditorName,
-     creditor_iban: input.creditorIban.replace(/\s+/g, "").toUpperCase(),
-     creditor_bic: input.creditorBic,
-     creditor_id: input.creditorId,
-     collection_date: input.collectionDate,
-     total_amount: input.invoices.reduce((s, i) => s + i.amount, 0),
-     transaction_count: input.invoices.length,
-     xml_content: xml,
-     status: "generated",
-    })
-    .select()
-    .single();
-   if (error) throw error;
-   await supabase.from("remittance_invoices").insert(
-    input.invoices.map((i) => ({
-     remittance_id: rem.id,
-     invoice_id: i.invoiceId,
-     amount: i.amount,
-    })),
-   );
-   await supabase
-    .from("invoices")
-    .update({ status: "included" })
-    .in(
-     "id",
-     input.invoices.map((i) => i.invoiceId),
-    );
-   downloadXml(`${input.messageId}.xml`, xml);
-   return rem;
-  },
-  onSuccess: () => {
-   toast.success("Remesa generada y descargada");
-   setSelected(new Set());
-   setIssues([]);
-   qc.invalidateQueries({ queryKey: ["invoices"] });
-   qc.invalidateQueries({ queryKey: ["remittances"] });
-  },
-  onError: (e: Error) => {
-   if (e.message !== "Validación fallida") toast.error(e.message);
-  },
- });
- function preview() {
-  const found = validateRemittance(buildInput());
-  setIssues(found.map((f) => f.message));
-  if (!found.length) toast.success("Validación OK. Lista para generar.");
-  else toast.error(`${found.length} problemas encontrados`);
- }
- return (
-  <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-   <Card className="lg:col-span-2">
-    <CardHeader>
-     <CardTitle className="text-base">Selecciona facturas a incluir</CardTitle>
-    </CardHeader>
-    <CardContent className="p-0">
-     <Table>
-      <TableHeader>
-       <TableRow>
-        <TableHead className="w-10"></TableHead>
-        <TableHead>Número</TableHead>
-        <TableHead>Cliente</TableHead>
-        <TableHead>Mandato</TableHead>
-        <TableHead className="text-right">Importe</TableHead>
-       </TableRow>
-      </TableHeader>
-      <TableBody>
-       {pending.length === 0 && (
-        <TableRow>
-         <TableCell colSpan={5} className="text-center py-6 text-sm text-muted-foreground">
-          Sin facturas pendientes.
-         </TableCell>
-        </TableRow>
-       )}
-       {pending.map((inv) => {
-        const m = mandatesByClient.get(inv.client_id);
-        return (
-         <TableRow key={inv.id}>
-          <TableCell>
-           <Checkbox
-            checked={selected.has(inv.id)}
-            onCheckedChange={() => toggle(inv.id)}
-           />
-          </TableCell>
-          <TableCell className="font-mono text-xs">{inv.invoice_number}</TableCell>
-          <TableCell>{clients.find((c) => c.id === inv.client_id)?.name}</TableCell>
-          <TableCell className="text-xs">
-           {m ? (
-            <span className="text-foreground font-mono">{m.mandate_reference}</span>
-           ) : (
-            <span className="text-destructive">sin mandato</span>
-           )}
-          </TableCell>
-          <TableCell className="text-right font-mono tabular-nums">
-           {inv.amount.toFixed(2)} €
-          </TableCell>
-         </TableRow>
+
+  function closeEditDialog() {
+    setEditingInvoice(null);
+  }
+
+  const updateInvoiceMut = useMutation({
+    mutationFn: async (payload: {
+      id: string;
+      client_id: string;
+      invoice_number: string;
+      issue_date: string;
+      due_date: string;
+      amount: number;
+      concept: string | null;
+      payment_method: PaymentMethod;
+      payment_status: PaymentStatus;
+      existing_paid_at: string | null;
+    }) => {
+      const paid_at =
+        payload.payment_status === "paid"
+          ? (payload.existing_paid_at ?? new Date().toISOString())
+          : null;
+      const { error } = await supabase
+        .from("invoices")
+        .update({
+          client_id: payload.client_id,
+          invoice_number: payload.invoice_number,
+          issue_date: payload.issue_date,
+          due_date: payload.due_date,
+          amount: payload.amount,
+          concept: payload.concept,
+          payment_method: payload.payment_method,
+          payment_status: payload.payment_status,
+          paid_at,
+        })
+        .eq("id", payload.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Factura actualizada");
+      qc.invalidateQueries({ queryKey: ["invoices"] });
+      closeEditDialog();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  function onEditSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!editingInvoice) return;
+    const fd = new FormData(e.currentTarget);
+    const amount = Number(fd.get("amount"));
+    if (!isFinite(amount) || amount <= 0) return toast.error("Importe inválido");
+    updateInvoiceMut.mutate({
+      id: editingInvoice.id,
+      client_id: editClientId,
+      invoice_number: String(fd.get("invoice_number")),
+      issue_date: String(fd.get("issue_date")),
+      due_date: String(fd.get("due_date")),
+      amount,
+      concept: String(fd.get("concept") ?? "").trim() || null,
+      payment_method: editPaymentMethod,
+      payment_status: editPaymentStatus,
+      existing_paid_at: editingInvoice.paid_at,
+    });
+  }
+
+  const createMut = useMutation({
+    mutationFn: async (
+      payload: Omit<Invoice, "id" | "currency" | "pdf_path" | "status" | "payment_method" | "payment_status" | "paid_at"> & {
+        status?: string;
+      },
+    ) => {
+      if (!ws) throw new Error("Sin workspace");
+      const { error } = await supabase.from("invoices").insert({
+        workspace_id: ws.id,
+        client_id: payload.client_id,
+        invoice_number: payload.invoice_number,
+        issue_date: payload.issue_date,
+        due_date: payload.due_date,
+        amount: payload.amount,
+        concept: payload.concept,
+        status: "pending",
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Factura creada");
+      qc.invalidateQueries({ queryKey: ["invoices"] });
+      setOpen(false);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("invoices").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["invoices"] }),
+  });
+
+  const toggleStatusMut = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: PaymentStatus }) => {
+      const payload: { payment_status: PaymentStatus; paid_at: string | null } = {
+        payment_status: status,
+        paid_at: status === "paid" ? new Date().toISOString() : null,
+      };
+      const { error } = await supabase.from("invoices").update(payload).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Estado actualizado");
+      qc.invalidateQueries({ queryKey: ["invoices"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const updatePaymentMethodMut = useMutation({
+    mutationFn: async ({ id, method }: { id: string; method: PaymentMethod }) => {
+      const { error } = await supabase.from("invoices").update({ payment_method: method }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Método actualizado");
+      qc.invalidateQueries({ queryKey: ["invoices"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const importMut = useMutation({
+    mutationFn: async (file: File) => {
+      if (!ws) throw new Error("Sin workspace");
+      const text = await file.text();
+      const rows = parseCsv(text);
+      if (!rows.length) throw new Error("CSV vacío");
+      const byName = new Map(clients.map((c) => [c.name.toLowerCase(), c.id]));
+      const toInsert: Array<{
+        workspace_id: string;
+        client_id: string;
+        invoice_number: string;
+        amount: number;
+        issue_date: string;
+        due_date: string;
+        concept: string | null;
+        source: string;
+        status: "pending";
+      }> = [];
+      const errors: string[] = [];
+      for (const [i, r] of rows.entries()) {
+        const clientKey = (r.client || r.cliente || r.client_name || "").toLowerCase();
+        const client_id = byName.get(clientKey);
+        if (!client_id) {
+          errors.push(`Fila ${i + 2}: cliente "${r.client || r.cliente}" no encontrado`);
+          continue;
+        }
+        const amount = parseAmount(r.amount || r.importe || r.total || "");
+        if (!isFinite(amount) || amount <= 0) {
+          errors.push(`Fila ${i + 2}: importe inválido`);
+          continue;
+        }
+        const invoice_number = r.invoice_number || r.numero || r.number || r.factura || "";
+        if (!invoice_number) {
+          errors.push(`Fila ${i + 2}: falta número`);
+          continue;
+        }
+        const due_date =
+          parseDate(r.due_date || r.vencimiento || "") || new Date().toISOString().slice(0, 10);
+        const issue_date = parseDate(r.issue_date || r.fecha || "") || due_date;
+        toInsert.push({
+          workspace_id: ws.id,
+          client_id,
+          invoice_number,
+          amount,
+          issue_date,
+          due_date,
+          concept: r.concept || r.concepto || null,
+          source: "csv",
+          status: "pending",
+        });
+      }
+      if (!toInsert.length) throw new Error(errors[0] || "No se pudo importar ninguna fila");
+      const { error } = await supabase.from("invoices").insert(toInsert);
+      if (error) throw error;
+      return { inserted: toInsert.length, errors };
+    },
+    onSuccess: (res) => {
+      toast.success(`${res.inserted} facturas importadas`);
+      if (res.errors.length) toast.warning(`${res.errors.length} filas omitidas`);
+      qc.invalidateQueries({ queryKey: ["invoices"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const importPdfMut = useMutation({
+    mutationFn: async (payload: {
+      file: File;
+      client_id: string;
+      invoice_number: string;
+      amount: number;
+      issue_date: string;
+      due_date: string;
+      concept: string | null;
+    }) => {
+      if (!ws) throw new Error("Sin workspace");
+      const { file } = payload;
+      if (file.type !== "application/pdf") {
+        throw new Error("Solo se admiten archivos PDF");
+      }
+      const safeName = file.name
+        .replace(/\.pdf$/i, "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-zA-Z0-9._-]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 80);
+      const path = `${ws.id}/${Date.now()}-${safeName || "factura"}.pdf`;
+      const { error } = await supabase.storage.from("facturas").upload(path, file, {
+        contentType: "application/pdf",
+        upsert: false,
+      });
+      if (error) {
+        throw new Error(
+          error.message.includes("Bucket not found")
+            ? "No existe el bucket facturas. Aplica la migración de Storage antes de importar PDFs."
+            : error.message,
         );
-       })}
-      </TableBody>
-     </Table>
-    </CardContent>
-   </Card>
-   <Card>
-    <CardHeader>
-     <CardTitle className="text-base">Datos del acreedor</CardTitle>
-    </CardHeader>
-    <CardContent className="space-y-3">
-     <div className="space-y-1.5">
-      <Label>Nombre</Label>
-      <Input value={creditorName} onChange={(e) => setCreditorName(e.target.value)} />
-     </div>
-     <div className="space-y-1.5">
-      <Label>IBAN</Label>
-      <Input
-       value={creditorIban}
-       onChange={(e) => setCreditorIban(e.target.value)}
-       className="font-mono"
-      />
-     </div>
-     <div className="space-y-1.5">
-      <Label>BIC (opcional)</Label>
-      <Input
-       value={creditorBic}
-       onChange={(e) => setCreditorBic(e.target.value)}
-       className="font-mono"
-      />
-     </div>
-     <div className="space-y-1.5">
-      <Label>Identificador acreedor (Creditor ID)</Label>
-      <Input
-       value={creditorId}
-       onChange={(e) => setCreditorId(e.target.value)}
-       placeholder="ESxxZZZxxxxxxxxx"
-      />
-     </div>
-     <div className="space-y-1.5">
-      <Label>Fecha de cobro</Label>
-      <Input
-       type="date"
-       value={collectionDate}
-       onChange={(e) => setCollectionDate(e.target.value)}
-      />
-     </div>
-     <div className="rounded-md border bg-muted/40 p-3 text-sm">
-      <div className="flex justify-between">
-       <span className="text-muted-foreground">Operaciones</span>
-       <span className="font-mono tabular-nums">{selected.size}</span>
+      }
+      const { error: insertError } = await supabase.from("invoices").insert({
+        workspace_id: ws.id,
+        client_id: payload.client_id,
+        invoice_number: payload.invoice_number,
+        issue_date: payload.issue_date,
+        due_date: payload.due_date,
+        amount: payload.amount,
+        concept: payload.concept,
+        pdf_path: path,
+        source: "pdf",
+        status: "pending",
+      });
+      if (insertError) throw insertError;
+      return path;
+    },
+    onSuccess: () => {
+      toast.success("PDF subido y factura creada");
+      setPdfOpen(false);
+      setPdfFile(null);
+      qc.invalidateQueries({ queryKey: ["invoices"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const amount = Number(fd.get("amount"));
+    if (!isFinite(amount) || amount <= 0) {
+      return toast.error("Importe inválido");
+    }
+    createMut.mutate({
+      client_id: String(fd.get("client_id")),
+      mandate_id: null,
+      invoice_number: String(fd.get("invoice_number")),
+      issue_date: String(fd.get("issue_date")),
+      due_date: String(fd.get("due_date")),
+      amount,
+      concept: String(fd.get("concept") ?? "") || null,
+    });
+  }
+
+  const clientName = (id: string) => clients.find((c) => c.id === id)?.name ?? "—";
+
+  function handlePdfChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) {
+      setPdfFile(file);
+      setPdfOpen(true);
+    }
+    e.currentTarget.value = "";
+  }
+
+  function onPdfSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!pdfFile) {
+      return toast.error("Selecciona un PDF");
+    }
+    const fd = new FormData(e.currentTarget);
+    const amount = Number(fd.get("amount"));
+    if (!isFinite(amount) || amount <= 0) {
+      return toast.error("Importe inválido");
+    }
+    importPdfMut.mutate({
+      file: pdfFile,
+      client_id: String(fd.get("client_id")),
+      invoice_number: String(fd.get("invoice_number")),
+      issue_date: String(fd.get("issue_date")),
+      due_date: String(fd.get("due_date")),
+      amount,
+      concept: String(fd.get("concept") ?? "") || null,
+    });
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* ── Modal editar factura ── */}
+      <Dialog open={!!editingInvoice} onOpenChange={(o) => { if (!o) closeEditDialog(); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar factura</DialogTitle>
+          </DialogHeader>
+          {editingInvoice && (
+            <form onSubmit={onEditSubmit} className="space-y-3">
+              <div className="space-y-1.5">
+                <Label>Cliente *</Label>
+                <Select value={editClientId} onValueChange={setEditClientId} required>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona cliente" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Número *</Label>
+                  <Input name="invoice_number" defaultValue={editingInvoice.invoice_number} required />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Importe (€) *</Label>
+                  <Input name="amount" type="number" step="0.01" defaultValue={editingInvoice.amount} required />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Emisión</Label>
+                  <Input name="issue_date" type="date" defaultValue={editingInvoice.issue_date} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Vencimiento *</Label>
+                  <Input name="due_date" type="date" defaultValue={editingInvoice.due_date} required />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Concepto</Label>
+                <Input name="concept" defaultValue={editingInvoice.concept ?? ""} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Método de pago</Label>
+                <Select value={editPaymentMethod} onValueChange={(v) => setEditPaymentMethod(v as PaymentMethod)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {PAYMENT_METHODS.map((m) => (
+                      <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Estado</Label>
+                <Select value={editPaymentStatus} onValueChange={(v) => setEditPaymentStatus(v as PaymentStatus)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">⏳ Pendiente</SelectItem>
+                    <SelectItem value="paid">✓ Pagada</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={closeEditDialog}>Cancelar</Button>
+                <Button type="submit" disabled={updateInvoiceMut.isPending}>Guardar cambios</Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <div className="flex flex-wrap gap-2">
+        {/* CSV */}
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".csv,text/csv"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) importMut.mutate(f);
+            e.currentTarget.value = "";
+          }}
+        />
+        <Button
+          variant="outline"
+          onClick={() => fileRef.current?.click()}
+          disabled={!canEdit || importMut.isPending}
+        >
+          <Upload className="mr-2 h-4 w-4" /> Importar CSV
+        </Button>
+        {/* PDF */}
+        <input
+          ref={pdfRef}
+          type="file"
+          accept="application/pdf"
+          className="hidden"
+          onChange={handlePdfChange}
+        />
+        <Button
+          variant="outline"
+          onClick={() => pdfRef.current?.click()}
+          disabled={!canEdit || importPdfMut.isPending}
+        >
+          <Upload className="mr-2 h-4 w-4" /> Importar PDF
+        </Button>
+        <Dialog
+          open={pdfOpen}
+          onOpenChange={(next) => {
+            setPdfOpen(next);
+            if (!next) setPdfFile(null);
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Importar factura PDF</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={onPdfSubmit} className="space-y-3">
+              <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm">
+                <div className="truncate font-medium">{pdfFile?.name}</div>
+                <div className="text-xs text-muted-foreground">
+                  El PDF se guardará y quedará vinculado a la factura.
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Cliente *</Label>
+                <Select name="client_id" required>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona cliente" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Número *</Label>
+                  <Input name="invoice_number" required />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Importe (€) *</Label>
+                  <Input name="amount" type="number" step="0.01" required />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Emisión</Label>
+                  <Input
+                    name="issue_date"
+                    type="date"
+                    defaultValue={new Date().toISOString().slice(0, 10)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Vencimiento *</Label>
+                  <Input
+                    name="due_date"
+                    type="date"
+                    required
+                    defaultValue={new Date().toISOString().slice(0, 10)}
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Concepto</Label>
+                <Input name="concept" />
+              </div>
+              <DialogFooter>
+                <Button type="submit" disabled={importPdfMut.isPending}>
+                  Crear factura
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button disabled={!canEdit}>
+              <Plus className="mr-2 h-4 w-4" /> Nueva factura
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Nueva factura</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={onSubmit} className="space-y-3">
+              <div className="space-y-1.5">
+                <Label>Cliente *</Label>
+                <Select name="client_id" required>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona cliente" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Número *</Label>
+                  <Input name="invoice_number" required />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Importe (€) *</Label>
+                  <Input name="amount" type="number" step="0.01" required />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Emisión</Label>
+                  <Input
+                    name="issue_date"
+                    type="date"
+                    defaultValue={new Date().toISOString().slice(0, 10)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Vencimiento *</Label>
+                  <Input
+                    name="due_date"
+                    type="date"
+                    required
+                    defaultValue={new Date().toISOString().slice(0, 10)}
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Concepto</Label>
+                <Input name="concept" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Método de pago</Label>
+                <Select name="payment_method" defaultValue="transferencia">
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona método" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PAYMENT_METHODS.map((m) => (
+                      <SelectItem key={m.value} value={m.value}>
+                        {m.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Estado inicial</Label>
+                <Select name="payment_status" defaultValue="pending">
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona estado" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">⏳ Pendiente</SelectItem>
+                    <SelectItem value="paid">✓ Pagada</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <DialogFooter>
+                <Button type="submit">Guardar</Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
-      <div className="flex justify-between font-medium">
-       <span>Total</span>
-       <span className="font-mono tabular-nums">{total.toFixed(2)} €</span>
-      </div>
-     </div>
-     {issues.length > 0 && (
-      <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs">
-       <div className="mb-1 flex items-center gap-1 font-medium text-destructive">
-        <AlertTriangle className="h-3 w-3" /> Errores de validación
-       </div>
-       <ul className="list-disc pl-4 space-y-0.5 text-destructive">
-        {issues.slice(0, 8).map((m, i) => (
-         <li key={i}>{m}</li>
-        ))}
-        {issues.length > 8 && <li>… y {issues.length - 8} más</li>}
-       </ul>
-      </div>
-     )}
-     <div className="flex gap-2 pt-1">
-      <Button
-       variant="outline"
-       onClick={preview}
-       disabled={selected.size === 0}
-       className="flex-1"
-      >
-       Validar
-      </Button>
-      <Button
-       onClick={() => generateMut.mutate()}
-       disabled={!canEdit || selected.size === 0 || generateMut.isPending}
-       className="flex-1"
-      >
-       <Send className="mr-2 h-4 w-4" /> Generar XML
-      </Button>
-     </div>
-    </CardContent>
-   </Card>
-  </div>
- );
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Número</TableHead>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Vencimiento</TableHead>
+                <TableHead className="text-right">Importe</TableHead>
+                <TableHead>Método</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading && (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8 text-sm text-muted-foreground">
+                    Cargando...
+                  </TableCell>
+                </TableRow>
+              )}
+              {!isLoading && invoices.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8 text-sm text-muted-foreground">
+                    Sin facturas. Crea una, importa un CSV o sube un PDF.
+                  </TableCell>
+                </TableRow>
+              )}
+              {invoices.map((inv) => (
+                <TableRow key={inv.id}>
+                  <TableCell className="font-mono text-xs">{inv.invoice_number}</TableCell>
+                  <TableCell>{clientName(inv.client_id)}</TableCell>
+                  <TableCell>{inv.due_date}</TableCell>
+                  <TableCell className="text-right font-mono tabular-nums">
+                    {inv.amount.toFixed(2)} €
+                  </TableCell>
+                  <TableCell>
+                    <Select
+                      value={inv.payment_method}
+                      onValueChange={(v) =>
+                        updatePaymentMethodMut.mutate({
+                          id: inv.id,
+                          method: v as PaymentMethod,
+                        })
+                      }
+                      disabled={updatePaymentMethodMut.isPending && toggleStatusMut.isPending}
+                    >
+                      <SelectTrigger className="h-8 w-auto min-w-[120px] text-xs border-none bg-transparent focus:ring-0 shadow-none">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PAYMENT_METHODS.map((m) => (
+                          <SelectItem key={m.value} value={m.value}>
+                            {m.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Badge
+                        variant={
+                          inv.payment_status === "paid"
+                            ? "default"
+                            : inv.status === "included"
+                            ? "secondary"
+                            : "outline"
+                        }
+                        className={
+                          inv.payment_status === "paid"
+                            ? "bg-green-600 hover:bg-green-700"
+                            : inv.status === "included"
+                            ? ""
+                            : "border-amber-500 text-amber-700"
+                        }
+                      >
+                        {inv.payment_status === "paid"
+                          ? "✓ Pagada"
+                          : inv.status === "included"
+                          ? inv.status
+                          : "⏳ Pendiente"}
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs text-muted-foreground"
+                        disabled={
+                          !canEdit ||
+                          updatePaymentMethodMut.isPending ||
+                          toggleStatusMut.isPending
+                        }
+                        onClick={() =>
+                          toggleStatusMut.mutate({
+                            id: inv.id,
+                            status: inv.payment_status === "pending" ? "paid" : "pending",
+                          })
+                        }
+                      >
+                        {inv.payment_status === "pending"
+                          ? "Marcar pagada"
+                          : "Marcar pendiente"}
+                      </Button>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        disabled={!canEdit}
+                        onClick={() => openEditDialog(inv)}
+                      >
+                        <Pencil className="h-4 w-4 text-muted-foreground" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        disabled={!canEdit}
+                        onClick={() => {
+                          if (confirm("¿Eliminar factura?")) deleteMut.mutate(inv.id);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 text-muted-foreground" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+      <p className="text-xs text-muted-foreground">
+        CSV admite columnas:{" "}
+        <code>client,invoice_number,amount,due_date,issue_date,concept</code>{" "}
+        (también acepta nombres en español: cliente, numero, importe, vencimiento, fecha, concepto).
+      </p>
+    </div>
+  );
 }
+
+function RemittanceTab() {
+  const qc = useQueryClient();
+  const { data: ws } = useCurrentWorkspace();
+  const canEdit = useCanEdit();
+  const { data: invoices = [] } = useInvoices();
+  const { data: clients = [] } = useClients();
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [creditorName, setCreditorName] = useState("");
+  const [creditorIban, setCreditorIban] = useState("");
+  const [creditorBic, setCreditorBic] = useState("");
+  const [creditorId, setCreditorId] = useState("");
+  const [collectionDate, setCollectionDate] = useState(
+    new Date(Date.now() + 5 * 86400000).toISOString().slice(0, 10),
+  );
+  const [issues, setIssues] = useState<string[]>([]);
+  const pending = invoices.filter((i) => i.payment_status === "pending");
+  const { data: mandatesByClient = new Map<string, SepaMandate>() } = useQuery({
+    queryKey: ["all-mandates"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("sepa_mandates")
+        .select("*")
+        .eq("is_active", true);
+      if (error) throw error;
+      const map = new Map<string, SepaMandate>();
+      for (const m of data ?? []) if (!map.has(m.client_id)) map.set(m.client_id, m);
+      return map;
+    },
+  });
+  const total = invoices.filter((i) => selected.has(i.id)).reduce((s, i) => s + i.amount, 0);
+  function toggle(id: string) {
+    setSelected((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) {
+        n.delete(id);
+      } else {
+        n.add(id);
+      }
+      return n;
+    });
+  }
+  function buildInput() {
+    const sepaInvoices: SepaInvoiceInput[] = [];
+    for (const inv of invoices.filter((i) => selected.has(i.id))) {
+      const client = clients.find((c) => c.id === inv.client_id);
+      const mandate = mandatesByClient.get(inv.client_id);
+      sepaInvoices.push({
+        invoiceId: inv.id,
+        invoiceNumber: inv.invoice_number,
+        amount: inv.amount,
+        concept: inv.concept,
+        debtorName: client?.name ?? "",
+        debtorIban: mandate?.iban ?? client?.iban ?? "",
+        debtorBic: mandate?.bic ?? client?.bic ?? null,
+        mandateReference: mandate?.mandate_reference ?? "",
+        mandateSignatureDate: mandate?.signature_date ?? "",
+        sequenceType: mandate?.sequence_type ?? "RCUR",
+      });
+    }
+    const messageId = `NEXA-${Date.now()}`;
+    return {
+      messageId,
+      creditorName,
+      creditorIban,
+      creditorBic: creditorBic || null,
+      creditorId,
+      collectionDate,
+      invoices: sepaInvoices,
+    };
+  }
+  const generateMut = useMutation({
+    mutationFn: async () => {
+      if (!ws) throw new Error("Sin workspace");
+      const input = buildInput();
+      const found = validateRemittance(input);
+      if (found.length) {
+        setIssues(found.map((f) => f.message));
+        throw new Error("Validación fallida");
+      }
+      setIssues([]);
+      const xml = generateSepaXml(input);
+      const { data: rem, error } = await supabase
+        .from("remittances")
+        .insert({
+          workspace_id: ws.id,
+          message_id: input.messageId,
+          creditor_name: input.creditorName,
+          creditor_iban: input.creditorIban.replace(/\s+/g, "").toUpperCase(),
+          creditor_bic: input.creditorBic,
+          creditor_id: input.creditorId,
+          collection_date: input.collectionDate,
+          total_amount: input.invoices.reduce((s, i) => s + i.amount, 0),
+          transaction_count: input.invoices.length,
+          xml_content: xml,
+          status: "generated",
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      await supabase.from("remittance_invoices").insert(
+        input.invoices.map((i) => ({
+          remittance_id: rem.id,
+          invoice_id: i.invoiceId,
+          amount: i.amount,
+        })),
+      );
+      await supabase
+        .from("invoices")
+        .update({ status: "included" })
+        .in(
+          "id",
+          input.invoices.map((i) => i.invoiceId),
+        );
+      downloadXml(`${input.messageId}.xml`, xml);
+      return rem;
+    },
+    onSuccess: () => {
+      toast.success("Remesa generada y descargada");
+      setSelected(new Set());
+      setIssues([]);
+      qc.invalidateQueries({ queryKey: ["invoices"] });
+      qc.invalidateQueries({ queryKey: ["remittances"] });
+    },
+    onError: (e: Error) => {
+      if (e.message !== "Validación fallida") toast.error(e.message);
+    },
+  });
+  function preview() {
+    const found = validateRemittance(buildInput());
+    setIssues(found.map((f) => f.message));
+    if (!found.length) toast.success("Validación OK. Lista para generar.");
+    else toast.error(`${found.length} problemas encontrados`);
+  }
+  return (
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <Card className="lg:col-span-2">
+        <CardHeader>
+          <CardTitle className="text-base">Selecciona facturas a incluir</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-10"></TableHead>
+                <TableHead>Número</TableHead>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Mandato</TableHead>
+                <TableHead className="text-right">Importe</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {pending.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-6 text-sm text-muted-foreground">
+                    Sin facturas pendientes.
+                  </TableCell>
+                </TableRow>
+              )}
+              {pending.map((inv) => {
+                const m = mandatesByClient.get(inv.client_id);
+                return (
+                  <TableRow key={inv.id}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selected.has(inv.id)}
+                        onCheckedChange={() => toggle(inv.id)}
+                      />
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">{inv.invoice_number}</TableCell>
+                    <TableCell>{clients.find((c) => c.id === inv.client_id)?.name}</TableCell>
+                    <TableCell className="text-xs">
+                      {m ? (
+                        <span className="text-foreground font-mono">{m.mandate_reference}</span>
+                      ) : (
+                        <span className="text-destructive">sin mandato</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right font-mono tabular-nums">
+                      {inv.amount.toFixed(2)} €
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Datos del acreedor</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="space-y-1.5">
+            <Label>Nombre</Label>
+            <Input value={creditorName} onChange={(e) => setCreditorName(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>IBAN</Label>
+            <Input
+              value={creditorIban}
+              onChange={(e) => setCreditorIban(e.target.value)}
+              className="font-mono"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>BIC (opcional)</Label>
+            <Input
+              value={creditorBic}
+              onChange={(e) => setCreditorBic(e.target.value)}
+              className="font-mono"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Identificador acreedor (Creditor ID)</Label>
+            <Input
+              value={creditorId}
+              onChange={(e) => setCreditorId(e.target.value)}
+              placeholder="ESxxZZZxxxxxxxxx"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Fecha de cobro</Label>
+            <Input
+              type="date"
+              value={collectionDate}
+              onChange={(e) => setCollectionDate(e.target.value)}
+            />
+          </div>
+          <div className="rounded-md border bg-muted/40 p-3 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Operaciones</span>
+              <span className="font-mono tabular-nums">{selected.size}</span>
+            </div>
+            <div className="flex justify-between font-medium">
+              <span>Total</span>
+              <span className="font-mono tabular-nums">{total.toFixed(2)} €</span>
+            </div>
+          </div>
+          {issues.length > 0 && (
+            <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs">
+              <div className="mb-1 flex items-center gap-1 font-medium text-destructive">
+                <AlertTriangle className="h-3 w-3" /> Errores de validación
+              </div>
+              <ul className="list-disc pl-4 space-y-0.5 text-destructive">
+                {issues.slice(0, 8).map((m, i) => (
+                  <li key={i}>{m}</li>
+                ))}
+                {issues.length > 8 && <li>… y {issues.length - 8} más</li>}
+              </ul>
+            </div>
+          )}
+          <div className="flex gap-2 pt-1">
+            <Button
+              variant="outline"
+              onClick={preview}
+              disabled={selected.size === 0}
+              className="flex-1"
+            >
+              Validar
+            </Button>
+            <Button
+              onClick={() => generateMut.mutate()}
+              disabled={!canEdit || selected.size === 0 || generateMut.isPending}
+              className="flex-1"
+            >
+              <Send className="mr-2 h-4 w-4" /> Generar XML
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 function HistoryTab() {
- const { data: remittances = [], isLoading } = useQuery({
-  queryKey: ["remittances"],
-  queryFn: async () => {
-   const { data, error } = await supabase
-    .from("remittances")
-    .select("*")
-    .order("created_at", { ascending: false });
-   if (error) throw error;
-   return data ?? [];
-  },
- });
- return (
-  <Card>
-   <CardHeader>
-    <CardTitle className="text-base">Histórico de remesas</CardTitle>
-   </CardHeader>
-   <CardContent className="p-0">
-    <Table>
-     <TableHeader>
-      <TableRow>
-       <TableHead>Message ID</TableHead>
-       <TableHead>Fecha cobro</TableHead>
-       <TableHead className="text-right">Operaciones</TableHead>
-       <TableHead className="text-right">Importe</TableHead>
-       <TableHead>Estado</TableHead>
-       <TableHead></TableHead>
-      </TableRow>
-     </TableHeader>
-     <TableBody>
-      {isLoading && (
-       <TableRow>
-        <TableCell colSpan={6} className="text-center py-8 text-sm text-muted-foreground">
-         Cargando...
-        </TableCell>
-       </TableRow>
-      )}
-      {!isLoading && remittances.length === 0 && (
-       <TableRow>
-        <TableCell colSpan={6} className="text-center py-8 text-sm text-muted-foreground">
-         Aún no hay remesas.
-        </TableCell>
-       </TableRow>
-      )}
-      {remittances.map((r) => (
-       <TableRow key={r.id}>
-        <TableCell className="font-mono text-xs">{r.message_id}</TableCell>
-        <TableCell>{r.collection_date}</TableCell>
-        <TableCell className="text-right font-mono tabular-nums">
-         {r.transaction_count}
-        </TableCell>
-        <TableCell className="text-right font-mono tabular-nums">
-         {Number(r.total_amount).toFixed(2)} €
-        </TableCell>
-        <TableCell>
-         <Badge variant="secondary">{r.status}</Badge>
-        </TableCell>
-        <TableCell className="text-right">
-         <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => downloadXml(`${r.message_id}.xml`, r.xml_content)}
-         >
-          <Download className="mr-2 h-4 w-4" /> XML
-         </Button>
-        </TableCell>
-       </TableRow>
-      ))}
-     </TableBody>
-    </Table>
-   </CardContent>
-  </Card>
- );
+  const { data: remittances = [], isLoading } = useQuery({
+    queryKey: ["remittances"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("remittances")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Histórico de remesas</CardTitle>
+      </CardHeader>
+      <CardContent className="p-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Message ID</TableHead>
+              <TableHead>Fecha cobro</TableHead>
+              <TableHead className="text-right">Operaciones</TableHead>
+              <TableHead className="text-right">Importe</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading && (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-8 text-sm text-muted-foreground">
+                  Cargando...
+                </TableCell>
+              </TableRow>
+            )}
+            {!isLoading && remittances.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-8 text-sm text-muted-foreground">
+                  Aún no hay remesas.
+                </TableCell>
+              </TableRow>
+            )}
+            {remittances.map((r) => (
+              <TableRow key={r.id}>
+                <TableCell className="font-mono text-xs">{r.message_id}</TableCell>
+                <TableCell>{r.collection_date}</TableCell>
+                <TableCell className="text-right font-mono tabular-nums">
+                  {r.transaction_count}
+                </TableCell>
+                <TableCell className="text-right font-mono tabular-nums">
+                  {Number(r.total_amount).toFixed(2)} €
+                </TableCell>
+                <TableCell>
+                  <Badge variant="secondary">{r.status}</Badge>
+                </TableCell>
+                <TableCell className="text-right">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => downloadXml(`${r.message_id}.xml`, r.xml_content)}
+                  >
+                    <Download className="mr-2 h-4 w-4" /> XML
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+  );
 }
