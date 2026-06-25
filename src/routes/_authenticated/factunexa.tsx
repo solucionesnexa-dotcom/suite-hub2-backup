@@ -35,7 +35,7 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Upload, Send, Download, Trash2, AlertTriangle } from "lucide-react";
+import { Plus, Upload, Send, Download, Trash2, AlertTriangle, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { parseCsv, parseAmount, parseDate } from "@/lib/csv";
 import {
@@ -52,6 +52,19 @@ export const Route = createFileRoute("/_authenticated/factunexa")({
   component: FactuNexaPage,
 });
 
+type PaymentMethod = "transferencia" | "efectivo" | "bizum" | "tarjeta" | "paypal" | "cheque" | "otro";
+type PaymentStatus = "pending" | "paid";
+
+const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
+  { value: "transferencia", label: "Transferencia bancaria" },
+  { value: "efectivo",      label: "Efectivo" },
+  { value: "bizum",         label: "Bizum" },
+  { value: "tarjeta",       label: "Tarjeta" },
+  { value: "paypal",        label: "PayPal" },
+  { value: "cheque",        label: "Cheque" },
+  { value: "otro",          label: "Otro" },
+];
+
 type Invoice = {
   id: string;
   client_id: string;
@@ -64,6 +77,9 @@ type Invoice = {
   concept: string | null;
   pdf_path: string | null;
   status: string;
+  payment_method: PaymentMethod;
+  payment_status: PaymentStatus;
+  paid_at: string | null;
 };
 
 type ClientLite = {
@@ -72,6 +88,7 @@ type ClientLite = {
   iban: string | null;
   bic: string | null;
 };
+
 type SepaMandate = Tables<"sepa_mandates">;
 
 function FactuNexaPage() {
@@ -87,11 +104,15 @@ function FactuNexaPage() {
         <Tabs defaultValue="invoices">
           <TabsList>
             <TabsTrigger value="invoices">Facturas</TabsTrigger>
+            <TabsTrigger value="clients">Clientes</TabsTrigger>
             <TabsTrigger value="remit">Generar remesa</TabsTrigger>
             <TabsTrigger value="history">Histórico</TabsTrigger>
           </TabsList>
           <TabsContent value="invoices">
             <InvoicesTab />
+          </TabsContent>
+          <TabsContent value="clients">
+            <ClientsTab />
           </TabsContent>
           <TabsContent value="remit">
             <RemittanceTab />
@@ -126,15 +147,142 @@ function useInvoices() {
       const { data, error } = await supabase
         .from("invoices")
         .select(
-          "id, client_id, mandate_id, invoice_number, issue_date, due_date, amount, currency, concept, pdf_path, status",
+          "id, client_id, mandate_id, invoice_number, issue_date, due_date, amount, currency, concept, pdf_path, status, payment_method, payment_status, paid_at",
         )
         .order("due_date", { ascending: false });
       if (error) throw error;
-      return (data ?? []).map((i) => ({ ...i, amount: Number(i.amount) }));
+      return (data ?? []).map((i) => ({
+        ...i,
+        amount: Number(i.amount),
+        payment_method: (i.payment_method as PaymentMethod) ?? "transferencia",
+        payment_status: (i.payment_status as PaymentStatus) ?? "pending",
+        paid_at: i.paid_at ?? null,
+      }));
     },
   });
 }
 
+/* ─────────────────────────────────────────────
+   CLIENTES TAB
+───────────────────────────────────────────── */
+function ClientsTab() {
+  const qc = useQueryClient();
+  const canEdit = useCanEdit();
+  const { data: clients = [], isLoading } = useClients();
+  const [editingClient, setEditingClient] = useState<ClientLite | null>(null);
+
+  const updateClientMut = useMutation({
+    mutationFn: async (payload: ClientLite) => {
+      const { error } = await supabase
+        .from("clients")
+        .update({ name: payload.name, iban: payload.iban, bic: payload.bic })
+        .eq("id", payload.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Cliente actualizado");
+      qc.invalidateQueries({ queryKey: ["clients-lite"] });
+      setEditingClient(null);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  function onEditClientSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!editingClient) return;
+    const fd = new FormData(e.currentTarget);
+    updateClientMut.mutate({
+      id: editingClient.id,
+      name: String(fd.get("name") ?? "").trim(),
+      iban: String(fd.get("iban") ?? "").trim() || null,
+      bic: String(fd.get("bic") ?? "").trim() || null,
+    });
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Modal editar cliente */}
+      <Dialog open={!!editingClient} onOpenChange={(o) => { if (!o) setEditingClient(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar cliente</DialogTitle>
+          </DialogHeader>
+          {editingClient && (
+            <form onSubmit={onEditClientSubmit} className="space-y-3">
+              <div className="space-y-1.5">
+                <Label>Nombre *</Label>
+                <Input name="name" defaultValue={editingClient.name} required />
+              </div>
+              <div className="space-y-1.5">
+                <Label>IBAN</Label>
+                <Input name="iban" defaultValue={editingClient.iban ?? ""} className="font-mono" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>BIC</Label>
+                <Input name="bic" defaultValue={editingClient.bic ?? ""} className="font-mono" />
+              </div>
+              <DialogFooter>
+                <Button type="submit" disabled={updateClientMut.isPending}>Guardar cambios</Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nombre</TableHead>
+                <TableHead>IBAN</TableHead>
+                <TableHead>BIC</TableHead>
+                <TableHead></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading && (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center py-8 text-sm text-muted-foreground">
+                    Cargando...
+                  </TableCell>
+                </TableRow>
+              )}
+              {!isLoading && clients.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center py-8 text-sm text-muted-foreground">
+                    Sin clientes.
+                  </TableCell>
+                </TableRow>
+              )}
+              {clients.map((c) => (
+                <TableRow key={c.id}>
+                  <TableCell className="font-medium">{c.name}</TableCell>
+                  <TableCell className="font-mono text-xs">{c.iban ?? "—"}</TableCell>
+                  <TableCell className="font-mono text-xs">{c.bic ?? "—"}</TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      disabled={!canEdit}
+                      onClick={() => setEditingClient(c)}
+                    >
+                      <Pencil className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   FACTURAS TAB
+───────────────────────────────────────────── */
 function InvoicesTab() {
   const qc = useQueryClient();
   const { data: ws } = useCurrentWorkspace();
@@ -147,9 +295,87 @@ function InvoicesTab() {
   const fileRef = useRef<HTMLInputElement>(null);
   const pdfRef = useRef<HTMLInputElement>(null);
 
+  // Estado edición
+  const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
+  const [editClientId, setEditClientId] = useState("");
+  const [editPaymentMethod, setEditPaymentMethod] = useState<PaymentMethod>("transferencia");
+  const [editPaymentStatus, setEditPaymentStatus] = useState<PaymentStatus>("pending");
+
+  function openEditDialog(inv: Invoice) {
+    setEditingInvoice(inv);
+    setEditClientId(inv.client_id);
+    setEditPaymentMethod(inv.payment_method);
+    setEditPaymentStatus(inv.payment_status);
+  }
+
+  function closeEditDialog() {
+    setEditingInvoice(null);
+  }
+
+  const updateInvoiceMut = useMutation({
+    mutationFn: async (payload: {
+      id: string;
+      client_id: string;
+      invoice_number: string;
+      issue_date: string;
+      due_date: string;
+      amount: number;
+      concept: string | null;
+      payment_method: PaymentMethod;
+      payment_status: PaymentStatus;
+      existing_paid_at: string | null;
+    }) => {
+      const paid_at =
+        payload.payment_status === "paid"
+          ? (payload.existing_paid_at ?? new Date().toISOString())
+          : null;
+      const { error } = await supabase
+        .from("invoices")
+        .update({
+          client_id: payload.client_id,
+          invoice_number: payload.invoice_number,
+          issue_date: payload.issue_date,
+          due_date: payload.due_date,
+          amount: payload.amount,
+          concept: payload.concept,
+          payment_method: payload.payment_method,
+          payment_status: payload.payment_status,
+          paid_at,
+        })
+        .eq("id", payload.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Factura actualizada");
+      qc.invalidateQueries({ queryKey: ["invoices"] });
+      closeEditDialog();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  function onEditSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!editingInvoice) return;
+    const fd = new FormData(e.currentTarget);
+    const amount = Number(fd.get("amount"));
+    if (!isFinite(amount) || amount <= 0) return toast.error("Importe inválido");
+    updateInvoiceMut.mutate({
+      id: editingInvoice.id,
+      client_id: editClientId,
+      invoice_number: String(fd.get("invoice_number")),
+      issue_date: String(fd.get("issue_date")),
+      due_date: String(fd.get("due_date")),
+      amount,
+      concept: String(fd.get("concept") ?? "").trim() || null,
+      payment_method: editPaymentMethod,
+      payment_status: editPaymentStatus,
+      existing_paid_at: editingInvoice.paid_at,
+    });
+  }
+
   const createMut = useMutation({
     mutationFn: async (
-      payload: Omit<Invoice, "id" | "currency" | "pdf_path" | "status"> & {
+      payload: Omit<Invoice, "id" | "currency" | "pdf_path" | "status" | "payment_method" | "payment_status" | "paid_at"> & {
         status?: string;
       },
     ) => {
@@ -182,13 +408,40 @@ function InvoicesTab() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["invoices"] }),
   });
 
+  const toggleStatusMut = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: PaymentStatus }) => {
+      const payload: { payment_status: PaymentStatus; paid_at: string | null } = {
+        payment_status: status,
+        paid_at: status === "paid" ? new Date().toISOString() : null,
+      };
+      const { error } = await supabase.from("invoices").update(payload).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Estado actualizado");
+      qc.invalidateQueries({ queryKey: ["invoices"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const updatePaymentMethodMut = useMutation({
+    mutationFn: async ({ id, method }: { id: string; method: PaymentMethod }) => {
+      const { error } = await supabase.from("invoices").update({ payment_method: method }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Método actualizado");
+      qc.invalidateQueries({ queryKey: ["invoices"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const importMut = useMutation({
     mutationFn: async (file: File) => {
       if (!ws) throw new Error("Sin workspace");
       const text = await file.text();
       const rows = parseCsv(text);
       if (!rows.length) throw new Error("CSV vacío");
-
       const byName = new Map(clients.map((c) => [c.name.toLowerCase(), c.id]));
       const toInsert: Array<{
         workspace_id: string;
@@ -202,7 +455,6 @@ function InvoicesTab() {
         status: "pending";
       }> = [];
       const errors: string[] = [];
-
       for (const [i, r] of rows.entries()) {
         const clientKey = (r.client || r.cliente || r.client_name || "").toLowerCase();
         const client_id = byName.get(clientKey);
@@ -210,23 +462,19 @@ function InvoicesTab() {
           errors.push(`Fila ${i + 2}: cliente "${r.client || r.cliente}" no encontrado`);
           continue;
         }
-
         const amount = parseAmount(r.amount || r.importe || r.total || "");
         if (!isFinite(amount) || amount <= 0) {
           errors.push(`Fila ${i + 2}: importe inválido`);
           continue;
         }
-
         const invoice_number = r.invoice_number || r.numero || r.number || r.factura || "";
         if (!invoice_number) {
           errors.push(`Fila ${i + 2}: falta número`);
           continue;
         }
-
         const due_date =
           parseDate(r.due_date || r.vencimiento || "") || new Date().toISOString().slice(0, 10);
         const issue_date = parseDate(r.issue_date || r.fecha || "") || due_date;
-
         toInsert.push({
           workspace_id: ws.id,
           client_id,
@@ -239,12 +487,9 @@ function InvoicesTab() {
           status: "pending",
         });
       }
-
       if (!toInsert.length) throw new Error(errors[0] || "No se pudo importar ninguna fila");
-
       const { error } = await supabase.from("invoices").insert(toInsert);
       if (error) throw error;
-
       return { inserted: toInsert.length, errors };
     },
     onSuccess: (res) => {
@@ -270,7 +515,6 @@ function InvoicesTab() {
       if (file.type !== "application/pdf") {
         throw new Error("Solo se admiten archivos PDF");
       }
-
       const safeName = file.name
         .replace(/\.pdf$/i, "")
         .normalize("NFD")
@@ -283,7 +527,6 @@ function InvoicesTab() {
         contentType: "application/pdf",
         upsert: false,
       });
-
       if (error) {
         throw new Error(
           error.message.includes("Bucket not found")
@@ -291,7 +534,6 @@ function InvoicesTab() {
             : error.message,
         );
       }
-
       const { error: insertError } = await supabase.from("invoices").insert({
         workspace_id: ws.id,
         client_id: payload.client_id,
@@ -304,9 +546,7 @@ function InvoicesTab() {
         source: "pdf",
         status: "pending",
       });
-
       if (insertError) throw insertError;
-
       return path;
     },
     onSuccess: () => {
@@ -325,7 +565,6 @@ function InvoicesTab() {
     if (!isFinite(amount) || amount <= 0) {
       return toast.error("Importe inválido");
     }
-
     createMut.mutate({
       client_id: String(fd.get("client_id")),
       mandate_id: null,
@@ -353,13 +592,11 @@ function InvoicesTab() {
     if (!pdfFile) {
       return toast.error("Selecciona un PDF");
     }
-
     const fd = new FormData(e.currentTarget);
     const amount = Number(fd.get("amount"));
     if (!isFinite(amount) || amount <= 0) {
       return toast.error("Importe inválido");
     }
-
     importPdfMut.mutate({
       file: pdfFile,
       client_id: String(fd.get("client_id")),
@@ -373,6 +610,79 @@ function InvoicesTab() {
 
   return (
     <div className="space-y-4">
+      {/* ── Modal editar factura ── */}
+      <Dialog open={!!editingInvoice} onOpenChange={(o) => { if (!o) closeEditDialog(); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar factura</DialogTitle>
+          </DialogHeader>
+          {editingInvoice && (
+            <form onSubmit={onEditSubmit} className="space-y-3">
+              <div className="space-y-1.5">
+                <Label>Cliente *</Label>
+                <Select value={editClientId} onValueChange={setEditClientId} required>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona cliente" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Número *</Label>
+                  <Input name="invoice_number" defaultValue={editingInvoice.invoice_number} required />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Importe (€) *</Label>
+                  <Input name="amount" type="number" step="0.01" defaultValue={editingInvoice.amount} required />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Emisión</Label>
+                  <Input name="issue_date" type="date" defaultValue={editingInvoice.issue_date} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Vencimiento *</Label>
+                  <Input name="due_date" type="date" defaultValue={editingInvoice.due_date} required />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Concepto</Label>
+                <Input name="concept" defaultValue={editingInvoice.concept ?? ""} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Método de pago</Label>
+                <Select value={editPaymentMethod} onValueChange={(v) => setEditPaymentMethod(v as PaymentMethod)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {PAYMENT_METHODS.map((m) => (
+                      <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Estado</Label>
+                <Select value={editPaymentStatus} onValueChange={(v) => setEditPaymentStatus(v as PaymentStatus)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">⏳ Pendiente</SelectItem>
+                    <SelectItem value="paid">✓ Pagada</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={closeEditDialog}>Cancelar</Button>
+                <Button type="submit" disabled={updateInvoiceMut.isPending}>Guardar cambios</Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <div className="flex flex-wrap gap-2">
         {/* CSV */}
         <input
@@ -393,7 +703,6 @@ function InvoicesTab() {
         >
           <Upload className="mr-2 h-4 w-4" /> Importar CSV
         </Button>
-
         {/* PDF */}
         <input
           ref={pdfRef}
@@ -409,7 +718,6 @@ function InvoicesTab() {
         >
           <Upload className="mr-2 h-4 w-4" /> Importar PDF
         </Button>
-
         <Dialog
           open={pdfOpen}
           onOpenChange={(next) => {
@@ -428,7 +736,6 @@ function InvoicesTab() {
                   El PDF se guardará y quedará vinculado a la factura.
                 </div>
               </div>
-
               <div className="space-y-1.5">
                 <Label>Cliente *</Label>
                 <Select name="client_id" required>
@@ -444,7 +751,6 @@ function InvoicesTab() {
                   </SelectContent>
                 </Select>
               </div>
-
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label>Número *</Label>
@@ -472,12 +778,10 @@ function InvoicesTab() {
                   />
                 </div>
               </div>
-
               <div className="space-y-1.5">
                 <Label>Concepto</Label>
                 <Input name="concept" />
               </div>
-
               <DialogFooter>
                 <Button type="submit" disabled={importPdfMut.isPending}>
                   Crear factura
@@ -486,7 +790,6 @@ function InvoicesTab() {
             </form>
           </DialogContent>
         </Dialog>
-
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button disabled={!canEdit}>
@@ -513,7 +816,6 @@ function InvoicesTab() {
                   </SelectContent>
                 </Select>
               </div>
-
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label>Número *</Label>
@@ -541,12 +843,37 @@ function InvoicesTab() {
                   />
                 </div>
               </div>
-
               <div className="space-y-1.5">
                 <Label>Concepto</Label>
                 <Input name="concept" />
               </div>
-
+              <div className="space-y-1.5">
+                <Label>Método de pago</Label>
+                <Select name="payment_method" defaultValue="transferencia">
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona método" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PAYMENT_METHODS.map((m) => (
+                      <SelectItem key={m.value} value={m.value}>
+                        {m.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Estado inicial</Label>
+                <Select name="payment_status" defaultValue="pending">
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona estado" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">⏳ Pendiente</SelectItem>
+                    <SelectItem value="paid">✓ Pagada</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <DialogFooter>
                 <Button type="submit">Guardar</Button>
               </DialogFooter>
@@ -554,7 +881,6 @@ function InvoicesTab() {
           </DialogContent>
         </Dialog>
       </div>
-
       <Card>
         <CardContent className="p-0">
           <Table>
@@ -564,6 +890,7 @@ function InvoicesTab() {
                 <TableHead>Cliente</TableHead>
                 <TableHead>Vencimiento</TableHead>
                 <TableHead className="text-right">Importe</TableHead>
+                <TableHead>Método</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead></TableHead>
               </TableRow>
@@ -571,14 +898,14 @@ function InvoicesTab() {
             <TableBody>
               {isLoading && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-sm text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-8 text-sm text-muted-foreground">
                     Cargando...
                   </TableCell>
                 </TableRow>
               )}
               {!isLoading && invoices.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-sm text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-8 text-sm text-muted-foreground">
                     Sin facturas. Crea una, importa un CSV o sube un PDF.
                   </TableCell>
                 </TableRow>
@@ -592,29 +919,95 @@ function InvoicesTab() {
                     {inv.amount.toFixed(2)} €
                   </TableCell>
                   <TableCell>
-                    <Badge
-                      variant={
-                        inv.status === "paid"
-                          ? "default"
-                          : inv.status === "included"
+                    <Select
+                      value={inv.payment_method}
+                      onValueChange={(v) =>
+                        updatePaymentMethodMut.mutate({
+                          id: inv.id,
+                          method: v as PaymentMethod,
+                        })
+                      }
+                      disabled={updatePaymentMethodMut.isPending && toggleStatusMut.isPending}
+                    >
+                      <SelectTrigger className="h-8 w-auto min-w-[120px] text-xs border-none bg-transparent focus:ring-0 shadow-none">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PAYMENT_METHODS.map((m) => (
+                          <SelectItem key={m.value} value={m.value}>
+                            {m.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Badge
+                        variant={
+                          inv.payment_status === "paid"
+                            ? "default"
+                            : inv.status === "included"
                             ? "secondary"
                             : "outline"
-                      }
-                    >
-                      {inv.status}
-                    </Badge>
+                        }
+                        className={
+                          inv.payment_status === "paid"
+                            ? "bg-green-600 hover:bg-green-700"
+                            : inv.status === "included"
+                            ? ""
+                            : "border-amber-500 text-amber-700"
+                        }
+                      >
+                        {inv.payment_status === "paid"
+                          ? "✓ Pagada"
+                          : inv.status === "included"
+                          ? inv.status
+                          : "⏳ Pendiente"}
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs text-muted-foreground"
+                        disabled={
+                          !canEdit ||
+                          updatePaymentMethodMut.isPending ||
+                          toggleStatusMut.isPending
+                        }
+                        onClick={() =>
+                          toggleStatusMut.mutate({
+                            id: inv.id,
+                            status: inv.payment_status === "pending" ? "paid" : "pending",
+                          })
+                        }
+                      >
+                        {inv.payment_status === "pending"
+                          ? "Marcar pagada"
+                          : "Marcar pendiente"}
+                      </Button>
+                    </div>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      disabled={!canEdit}
-                      onClick={() => {
-                        if (confirm("¿Eliminar factura?")) deleteMut.mutate(inv.id);
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4 text-muted-foreground" />
-                    </Button>
+                    <div className="flex items-center justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        disabled={!canEdit}
+                        onClick={() => openEditDialog(inv)}
+                      >
+                        <Pencil className="h-4 w-4 text-muted-foreground" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        disabled={!canEdit}
+                        onClick={() => {
+                          if (confirm("¿Eliminar factura?")) deleteMut.mutate(inv.id);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 text-muted-foreground" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -622,9 +1015,9 @@ function InvoicesTab() {
           </Table>
         </CardContent>
       </Card>
-
       <p className="text-xs text-muted-foreground">
-        CSV admite columnas: <code>client,invoice_number,amount,due_date,issue_date,concept</code>{" "}
+        CSV admite columnas:{" "}
+        <code>client,invoice_number,amount,due_date,issue_date,concept</code>{" "}
         (también acepta nombres en español: cliente, numero, importe, vencimiento, fecha, concepto).
       </p>
     </div>
@@ -646,10 +1039,7 @@ function RemittanceTab() {
     new Date(Date.now() + 5 * 86400000).toISOString().slice(0, 10),
   );
   const [issues, setIssues] = useState<string[]>([]);
-
-  const pending = invoices.filter((i) => i.status === "pending");
-
-  // Load mandates for selected invoices' clients
+  const pending = invoices.filter((i) => i.payment_status === "pending");
   const { data: mandatesByClient = new Map<string, SepaMandate>() } = useQuery({
     queryKey: ["all-mandates"],
     queryFn: async () => {
@@ -663,9 +1053,7 @@ function RemittanceTab() {
       return map;
     },
   });
-
   const total = invoices.filter((i) => selected.has(i.id)).reduce((s, i) => s + i.amount, 0);
-
   function toggle(id: string) {
     setSelected((prev) => {
       const n = new Set(prev);
@@ -677,7 +1065,6 @@ function RemittanceTab() {
       return n;
     });
   }
-
   function buildInput() {
     const sepaInvoices: SepaInvoiceInput[] = [];
     for (const inv of invoices.filter((i) => selected.has(i.id))) {
@@ -707,7 +1094,6 @@ function RemittanceTab() {
       invoices: sepaInvoices,
     };
   }
-
   const generateMut = useMutation({
     mutationFn: async () => {
       if (!ws) throw new Error("Sin workspace");
@@ -765,14 +1151,12 @@ function RemittanceTab() {
       if (e.message !== "Validación fallida") toast.error(e.message);
     },
   });
-
   function preview() {
     const found = validateRemittance(buildInput());
     setIssues(found.map((f) => f.message));
     if (!found.length) toast.success("Validación OK. Lista para generar.");
     else toast.error(`${found.length} problemas encontrados`);
   }
-
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
       <Card className="lg:col-span-2">
@@ -827,7 +1211,6 @@ function RemittanceTab() {
           </Table>
         </CardContent>
       </Card>
-
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Datos del acreedor</CardTitle>
@@ -869,7 +1252,6 @@ function RemittanceTab() {
               onChange={(e) => setCollectionDate(e.target.value)}
             />
           </div>
-
           <div className="rounded-md border bg-muted/40 p-3 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Operaciones</span>
@@ -880,7 +1262,6 @@ function RemittanceTab() {
               <span className="font-mono tabular-nums">{total.toFixed(2)} €</span>
             </div>
           </div>
-
           {issues.length > 0 && (
             <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs">
               <div className="mb-1 flex items-center gap-1 font-medium text-destructive">
@@ -894,7 +1275,6 @@ function RemittanceTab() {
               </ul>
             </div>
           )}
-
           <div className="flex gap-2 pt-1">
             <Button
               variant="outline"
@@ -930,7 +1310,6 @@ function HistoryTab() {
       return data ?? [];
     },
   });
-
   return (
     <Card>
       <CardHeader>
