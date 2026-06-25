@@ -16,6 +16,7 @@ import {
   Users,
   WalletCards,
   Building2,
+  Receipt,
 } from "lucide-react";
 import {
   Sidebar,
@@ -36,26 +37,27 @@ const general = [
   { title: "Clientes", url: "/clients", icon: Users },
 ];
 
-const sales = [
-  { title: "Prospector", url: "/prospector", icon: Search },
-  { title: "Diagnóstico", url: "/diagnostico", icon: ClipboardList },
-  { title: "Presupuestos", url: "/presupuestos", icon: FileText },
-  { title: "ROI Calculator", url: "/roi", icon: Calculator },
-  { title: "Kit Digital", url: "/kit-digital", icon: BadgeEuro },
-];
-
-const operations = [
+const billing = [
   { title: "FactuNexa", url: "/factunexa", icon: FileSpreadsheet },
-  { title: "Pipeline", url: "/pipeline", icon: LineChart },
+  { title: "Remesas", url: "/factunexa?tab=remesas", icon: Receipt },
   { title: "Retainer", url: "/retainer", icon: BriefcaseBusiness },
 ];
 
-const content = [
+const sales = [
+  { title: "Pipeline", url: "/pipeline", icon: LineChart },
+  { title: "Presupuestos", url: "/presupuestos", icon: FileText },
+  { title: "Prospector", url: "/prospector", icon: Search },
+  { title: "ROI Calculator", url: "/roi", icon: Calculator },
+  { title: "Kit Digital", url: "/kit-digital", icon: BadgeEuro },
+  { title: "Diagnóstico", url: "/diagnostico", icon: ClipboardList },
+];
+
+const resources = [
   { title: "SOP", url: "/sop", icon: Sparkles },
   { title: "Casos de Éxito", url: "/casos-exito", icon: Trophy },
 ];
 
-const admin = [
+const system = [
   { title: "Ajustes", url: "/settings", icon: Settings },
   { title: "Usuarios", url: "/usuarios", icon: UserCog },
   { title: "Créditos", url: "/creditos", icon: WalletCards },
@@ -63,15 +65,19 @@ const admin = [
 
 const groups = [
   { label: "General", items: general },
+  { label: "Facturación", items: billing },
   { label: "Ventas", items: sales },
-  { label: "Operaciones", items: operations },
-  { label: "Contenido", items: content },
+  { label: "Recursos", items: resources },
 ];
 
 export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { data: workspace } = useCurrentWorkspace();
-  const isActive = (url: string) => pathname === url || pathname.startsWith(url + "/");
+
+  const isActive = (url: string) => {
+    const cleanUrl = url.split("?")[0];
+    return pathname === cleanUrl || pathname.startsWith(cleanUrl + "/");
+  };
 
   return (
     <Sidebar collapsible="icon">
@@ -89,6 +95,7 @@ export function AppSidebar() {
           </div>
         </div>
       </SidebarHeader>
+
       <SidebarContent>
         {groups.map((group) => (
           <SidebarGroup key={group.label}>
@@ -110,19 +117,25 @@ export function AppSidebar() {
           </SidebarGroup>
         ))}
       </SidebarContent>
+
       <SidebarFooter className="border-t">
-        <SidebarMenu>
-          {admin.map((it) => (
-            <SidebarMenuItem key={it.url}>
-              <SidebarMenuButton asChild isActive={isActive(it.url)} tooltip={it.title}>
-                <Link to={it.url}>
-                  <it.icon />
-                  <span>{it.title}</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
-        </SidebarMenu>
+        <SidebarGroup>
+          <SidebarGroupLabel>Sistema</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {system.map((it) => (
+                <SidebarMenuItem key={it.url}>
+                  <SidebarMenuButton asChild isActive={isActive(it.url)} tooltip={it.title}>
+                    <Link to={it.url}>
+                      <it.icon />
+                      <span>{it.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarFooter>
     </Sidebar>
   );
