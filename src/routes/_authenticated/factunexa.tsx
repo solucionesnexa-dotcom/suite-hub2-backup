@@ -6,6 +6,13 @@ import { useCurrentWorkspace } from "@/hooks/useCurrentWorkspace";
 import { AppShell } from "@/components/AppShell";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -68,6 +75,8 @@ type PaymentMethod =
   | "otro";
 
 type PaymentStatus = "pending" | "paid";
+type MandateSequenceType = "FRST" | "RCUR" | "OOFF" | "FNAL";
+type MandateStatus = "activo" | "pendiente" | "cancelado";
 
 const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
   { value: "transferencia", label: "Transferencia bancaria" },
@@ -109,6 +118,94 @@ type ClientLite = {
 type Remittance = Tables<"remittances">;
 type SepaMandate = Tables<"sepa_mandates">;
 
+type ClientFormState = {
+  name: string;
+  iban: string;
+  bic: string;
+  email: string;
+  tax_id: string;
+  mandate_reference: string;
+  mandate_signature_date: string;
+  mandate_sequence_type: MandateSequenceType;
+  mandate_status: MandateStatus;
+};
+
+type InvoiceFormState = {
+  client_id: string;
+  invoice_number: string;
+  issue_date: string;
+  due_date: string;
+  amount: string;
+  concept: string;
+  payment_method: PaymentMethod;
+  payment_status: PaymentStatus;
+};
+
+function today() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function defaultClientForm(): ClientFormState {
+  return {
+    name: "",
+    iban: "",
+    bic: "",
+    email: "",
+    tax_id: "",
+    mandate_reference: "",
+    mandate_signature_date: "",
+    mandate_sequence_type: "RCUR",
+    mandate_status: "pendiente",
+  };
+}
+
+function defaultInvoiceForm(): InvoiceFormState {
+  return {
+    client_id: "",
+    invoice_number: "",
+    issue_date: today(),
+    due_date: today(),
+    amount: "",
+    concept: "",
+    payment_method: "transferencia",
+    payment_status: "pending",
+  };
+}
+
+function normalizeNullable(value: string) {
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function validatePositiveAmount(raw: string) {
+  const value = Number(raw);
+  if (!isFinite(value) || value <= 0) {
+    throw new Error("Importe inválido");
+  }
+  return value;
+}
+
+function validateRequired(value: string, label: string) {
+  const trimmed = value.trim();
+  if (!trimmed) throw new Error(`${label} es obligatorio`);
+  return trimmed;
+}
+
+function useCanEdit() {
+  const { data: ws } = useCurrentWorkspace();
+
+  const role =
+    (ws as { role?: string | null; member_role?: string | null } | undefined)
+      ?.role ??
+    (ws as { role?: string | null; member_role?: string | null } | undefined)
+      ?.member_role ??
+    null;
+
+  if (!role) return true;
+
+  return ["owner", "admin", "editor", "manager"].includes(role);
+}
+
 function useClients() {
   return useQuery({
     queryKey: ["clients-lite"],
@@ -117,6 +214,7 @@ function useClients() {
         .from("clients")
         .select("id, name, iban, bic, email, tax_id")
         .order("name");
+
       if (error) throw error;
       return data ?? [];
     },
@@ -222,9 +320,6 @@ function FactuNexaPage() {
   );
 }
 
-/* ─────────────────────────────────────────────
-   CLIENTES TAB
-───────────────────────────────────────────── */
 function ClientsTab() {
   const qc = useQueryClient();
   const canEdit = useCanEdit();
@@ -236,6 +331,8 @@ function ClientsTab() {
   const [createOpen, setCreateOpen] = useState(false);
   const [mandateFile, setMandateFile] = useState<File | null>(null);
   const [newMandateFile, setNewMandateFile] = useState<File | null>(null);
+  const [createForm, setCreateForm] = useState<ClientFormState>(defaultClientForm());
+  const [editForm, setEditForm] = useState<ClientFormState>(defaultClientForm());
 
   const uploadMandatePdf = async (clientId: string, file: File) => {
     if (file.type !== "application/pdf") {
@@ -278,8 +375,8 @@ function ClientsTab() {
       tax_id: string | null;
       mandate_reference: string | null;
       mandate_signature_date: string | null;
-      mandate_sequence_type: "FRST" | "RCUR" | "OOFF" | "FNAL";
-      mandate_status: "activo" | "pendiente" | "cancelado";
+      mandate_sequence_type: MandateSequenceType;
+      mandate_status: MandateStatus;
       mandate_pdf_path: string | null;
     }) => {
       const { error: clientError } = await supabase
@@ -338,31 +435,73 @@ function ClientsTab() {
       qc.invalidateQueries({ queryKey: ["all-mandates"] });
       setEditingClient(null);
       setMandateFile(null);
+      setEditForm(defaultClientForm());
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const createClientMut = useMutation({
-    mutationFn: async (payload: {
-      name: string;
-      iban: string | null;
-      bic: string | null;
-      email: string | null;
-      tax_id: string | null;
-      mandate_reference: string | null;
-      mandate_signature_date: string | null;
-      mandate_sequence_type: "FRST" | "RCUR" | "OOFF" | "FNAL";
-      mandate_status: "activo" | "pendiente" | "cancelado";
-      mandate_pdf_path: string | null;
-    }) => {
+  function openEditClient(client: ClientLite) {
+    const mandate = mandatesByClient.get(client.id);
+
+    setEditingClient(client);
+    setMandateFile(null);
+    setEditForm({
+      name: client.name ?? "",
+      iban: client.iban ?? "",
+      bic: client.bic ?? "",
+      email: client.email ?? "",
+      tax_id: client.tax_id ?? "",
+      mandate_reference: mandate?.mandate_reference ?? "",
+      mandate_signature_date: mandate?.signature_date ?? "",
+      mandate_sequence_type: (mandate?.sequence_type as MandateSequenceType) ?? "RCUR",
+      mandate_status: mandate?.is_active ? "activo" : "pendiente",
+    });
+  }
+
+  async function onEditClientSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!editingClient) return;
+
+    try {
+      const name = validateRequired(editForm.name, "Nombre");
+      let mandatePdfPath = mandatesByClient.get(editingClient.id)?.pdf_path ?? null;
+
+      if (mandateFile) {
+        mandatePdfPath = await uploadMandatePdf(editingClient.id, mandateFile);
+      }
+
+      updateClientMut.mutate({
+        id: editingClient.id,
+        name,
+        iban: normalizeNullable(editForm.iban),
+        bic: normalizeNullable(editForm.bic),
+        email: normalizeNullable(editForm.email),
+        tax_id: normalizeNullable(editForm.tax_id),
+        mandate_reference: normalizeNullable(editForm.mandate_reference),
+        mandate_signature_date: normalizeNullable(editForm.mandate_signature_date),
+        mandate_sequence_type: editForm.mandate_sequence_type,
+        mandate_status: editForm.mandate_status,
+        mandate_pdf_path: mandatePdfPath,
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Error al guardar cliente");
+    }
+  }
+
+  async function onCreateClientSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+
+    try {
+      const name = validateRequired(createForm.name, "Nombre");
+
       const { data: client, error: clientError } = await supabase
         .from("clients")
         .insert({
-          name: payload.name,
-          iban: payload.iban,
-          bic: payload.bic,
-          email: payload.email,
-          tax_id: payload.tax_id,
+          name,
+          iban: normalizeNullable(createForm.iban),
+          bic: normalizeNullable(createForm.bic),
+          email: normalizeNullable(createForm.email),
+          tax_id: normalizeNullable(createForm.tax_id),
         })
         .select("id")
         .single();
@@ -370,163 +509,42 @@ function ClientsTab() {
       if (clientError) throw clientError;
       if (!client) throw new Error("No se pudo crear el cliente");
 
-      const mandatePayload = {
-        client_id: client.id,
-        mandate_reference: payload.mandate_reference ?? "",
-        signature_date: payload.mandate_signature_date || null,
-        iban: payload.iban,
-        bic: payload.bic,
-        sequence_type: payload.mandate_sequence_type,
-        is_active: payload.mandate_status === "activo",
-        pdf_path: payload.mandate_pdf_path,
-      };
+      let mandatePdfPath: string | null = null;
+      if (newMandateFile) {
+        mandatePdfPath = await uploadMandatePdf(client.id, newMandateFile);
+      }
 
       const hasMandateData =
-        !!mandatePayload.mandate_reference ||
-        !!mandatePayload.signature_date ||
-        !!mandatePayload.iban ||
-        !!mandatePayload.bic ||
-        !!mandatePayload.pdf_path;
+        !!normalizeNullable(createForm.mandate_reference) ||
+        !!normalizeNullable(createForm.mandate_signature_date) ||
+        !!normalizeNullable(createForm.iban) ||
+        !!normalizeNullable(createForm.bic) ||
+        !!mandatePdfPath;
 
       if (hasMandateData) {
-        const { error: mandateError } = await supabase
-          .from("sepa_mandates")
-          .insert(mandatePayload);
+        const { error: mandateError } = await supabase.from("sepa_mandates").insert({
+          client_id: client.id,
+          mandate_reference: normalizeNullable(createForm.mandate_reference) ?? "",
+          signature_date: normalizeNullable(createForm.mandate_signature_date),
+          iban: normalizeNullable(createForm.iban),
+          bic: normalizeNullable(createForm.bic),
+          sequence_type: createForm.mandate_sequence_type,
+          is_active: createForm.mandate_status === "activo",
+          pdf_path: mandatePdfPath,
+        });
 
         if (mandateError) throw mandateError;
       }
 
-      return client.id;
-    },
-    onSuccess: () => {
       toast.success("Cliente creado");
       qc.invalidateQueries({ queryKey: ["clients-lite"] });
       qc.invalidateQueries({ queryKey: ["all-mandates"] });
       setCreateOpen(false);
       setNewMandateFile(null);
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  async function onEditClientSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if (!editingClient) return;
-
-    const fd = new FormData(e.currentTarget);
-    let mandatePdfPath = mandatesByClient.get(editingClient.id)?.pdf_path ?? null;
-
-    if (mandateFile) {
-      mandatePdfPath = await uploadMandatePdf(editingClient.id, mandateFile);
+      setCreateForm(defaultClientForm());
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Error al crear cliente");
     }
-
-    updateClientMut.mutate({
-      id: editingClient.id,
-      name: String(fd.get("name") ?? "").trim(),
-      iban: String(fd.get("iban") ?? "").trim() || null,
-      bic: String(fd.get("bic") ?? "").trim() || null,
-      email: String(fd.get("email") ?? "").trim() || null,
-      tax_id: String(fd.get("tax_id") ?? "").trim() || null,
-      mandate_reference: String(fd.get("mandate_reference") ?? "").trim() || null,
-      mandate_signature_date:
-        String(fd.get("mandate_signature_date") ?? "").trim() || null,
-      mandate_sequence_type:
-        (String(fd.get("mandate_sequence_type") ?? "RCUR") as
-          | "FRST"
-          | "RCUR"
-          | "OOFF"
-          | "FNAL"),
-      mandate_status: String(fd.get("mandate_status") ?? "pendiente") as
-        | "activo"
-        | "pendiente"
-        | "cancelado",
-      mandate_pdf_path: mandatePdfPath,
-    });
-  }
-
-  async function onCreateClientSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-
-    const fd = new FormData(e.currentTarget);
-    let tempPdfPath: string | null = null;
-
-    if (newMandateFile) {
-      tempPdfPath = `pending-upload`;
-    }
-
-    const name = String(fd.get("name") ?? "").trim();
-    const iban = String(fd.get("iban") ?? "").trim() || null;
-    const bic = String(fd.get("bic") ?? "").trim() || null;
-    const email = String(fd.get("email") ?? "").trim() || null;
-    const tax_id = String(fd.get("tax_id") ?? "").trim() || null;
-    const mandate_reference =
-      String(fd.get("mandate_reference") ?? "").trim() || null;
-    const mandate_signature_date =
-      String(fd.get("mandate_signature_date") ?? "").trim() || null;
-    const mandate_sequence_type = String(
-      fd.get("mandate_sequence_type") ?? "RCUR",
-    ) as "FRST" | "RCUR" | "OOFF" | "FNAL";
-    const mandate_status = String(fd.get("mandate_status") ?? "pendiente") as
-      | "activo"
-      | "pendiente"
-      | "cancelado";
-
-    const { data: client, error: clientError } = await supabase
-      .from("clients")
-      .insert({
-        name,
-        iban,
-        bic,
-        email,
-        tax_id,
-      })
-      .select("id")
-      .single();
-
-    if (clientError) {
-      toast.error(clientError.message);
-      return;
-    }
-
-    if (!client) {
-      toast.error("No se pudo crear el cliente");
-      return;
-    }
-
-    let mandatePdfPath: string | null = null;
-    if (newMandateFile) {
-      mandatePdfPath = await uploadMandatePdf(client.id, newMandateFile);
-    }
-
-    const hasMandateData =
-      !!mandate_reference ||
-      !!mandate_signature_date ||
-      !!iban ||
-      !!bic ||
-      !!mandatePdfPath;
-
-    if (hasMandateData) {
-      const { error: mandateError } = await supabase.from("sepa_mandates").insert({
-        client_id: client.id,
-        mandate_reference: mandate_reference ?? "",
-        signature_date: mandate_signature_date,
-        iban,
-        bic,
-        sequence_type: mandate_sequence_type,
-        is_active: mandate_status === "activo",
-        pdf_path: mandatePdfPath,
-      });
-
-      if (mandateError) {
-        toast.error(mandateError.message);
-        return;
-      }
-    }
-
-    toast.success("Cliente creado");
-    qc.invalidateQueries({ queryKey: ["clients-lite"] });
-    qc.invalidateQueries({ queryKey: ["all-mandates"] });
-    setCreateOpen(false);
-    setNewMandateFile(null);
   }
 
   return (
@@ -536,7 +554,10 @@ function ClientsTab() {
           open={createOpen}
           onOpenChange={(open) => {
             setCreateOpen(open);
-            if (!open) setNewMandateFile(null);
+            if (!open) {
+              setNewMandateFile(null);
+              setCreateForm(defaultClientForm());
+            }
           }}
         >
           <DialogTrigger asChild>
@@ -545,6 +566,7 @@ function ClientsTab() {
               Nuevo cliente
             </Button>
           </DialogTrigger>
+
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Nuevo cliente</DialogTitle>
@@ -553,27 +575,56 @@ function ClientsTab() {
             <form onSubmit={onCreateClientSubmit} className="space-y-3">
               <div className="space-y-1.5">
                 <Label>Nombre *</Label>
-                <Input name="name" required />
+                <Input
+                  value={createForm.name}
+                  onChange={(e) =>
+                    setCreateForm((p) => ({ ...p, name: e.target.value }))
+                  }
+                  required
+                />
               </div>
 
               <div className="space-y-1.5">
                 <Label>IBAN</Label>
-                <Input name="iban" className="font-mono" />
+                <Input
+                  className="font-mono"
+                  value={createForm.iban}
+                  onChange={(e) =>
+                    setCreateForm((p) => ({ ...p, iban: e.target.value }))
+                  }
+                />
               </div>
 
               <div className="space-y-1.5">
                 <Label>BIC</Label>
-                <Input name="bic" className="font-mono" />
+                <Input
+                  className="font-mono"
+                  value={createForm.bic}
+                  onChange={(e) =>
+                    setCreateForm((p) => ({ ...p, bic: e.target.value }))
+                  }
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label>Email</Label>
-                  <Input name="email" />
+                  <Input
+                    value={createForm.email}
+                    onChange={(e) =>
+                      setCreateForm((p) => ({ ...p, email: e.target.value }))
+                    }
+                  />
                 </div>
+
                 <div className="space-y-1.5">
                   <Label>NIF / CIF</Label>
-                  <Input name="tax_id" />
+                  <Input
+                    value={createForm.tax_id}
+                    onChange={(e) =>
+                      setCreateForm((p) => ({ ...p, tax_id: e.target.value }))
+                    }
+                  />
                 </div>
               </div>
 
@@ -582,18 +633,43 @@ function ClientsTab() {
 
                 <div className="space-y-1.5">
                   <Label>Referencia del mandato</Label>
-                  <Input name="mandate_reference" />
+                  <Input
+                    value={createForm.mandate_reference}
+                    onChange={(e) =>
+                      setCreateForm((p) => ({
+                        ...p,
+                        mandate_reference: e.target.value,
+                      }))
+                    }
+                  />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label>Fecha de firma</Label>
-                    <Input name="mandate_signature_date" type="date" />
+                    <Input
+                      type="date"
+                      value={createForm.mandate_signature_date}
+                      onChange={(e) =>
+                        setCreateForm((p) => ({
+                          ...p,
+                          mandate_signature_date: e.target.value,
+                        }))
+                      }
+                    />
                   </div>
 
                   <div className="space-y-1.5">
                     <Label>Secuencia SEPA</Label>
-                    <Select name="mandate_sequence_type" defaultValue="RCUR">
+                    <Select
+                      value={createForm.mandate_sequence_type}
+                      onValueChange={(v) =>
+                        setCreateForm((p) => ({
+                          ...p,
+                          mandate_sequence_type: v as MandateSequenceType,
+                        }))
+                      }
+                    >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
@@ -609,7 +685,15 @@ function ClientsTab() {
 
                 <div className="space-y-1.5">
                   <Label>Estado del mandato</Label>
-                  <Select name="mandate_status" defaultValue="pendiente">
+                  <Select
+                    value={createForm.mandate_status}
+                    onValueChange={(v) =>
+                      setCreateForm((p) => ({
+                        ...p,
+                        mandate_status: v as MandateStatus,
+                      }))
+                    }
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -632,9 +716,7 @@ function ClientsTab() {
               </div>
 
               <DialogFooter>
-                <Button type="submit" disabled={createClientMut.isPending}>
-                  Crear cliente
-                </Button>
+                <Button type="submit">Crear cliente</Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -647,6 +729,7 @@ function ClientsTab() {
           if (!open) {
             setEditingClient(null);
             setMandateFile(null);
+            setEditForm(defaultClientForm());
           }
         }}
       >
@@ -659,35 +742,56 @@ function ClientsTab() {
             <form onSubmit={onEditClientSubmit} className="space-y-3">
               <div className="space-y-1.5">
                 <Label>Nombre *</Label>
-                <Input name="name" defaultValue={editingClient.name} required />
+                <Input
+                  value={editForm.name}
+                  onChange={(e) =>
+                    setEditForm((p) => ({ ...p, name: e.target.value }))
+                  }
+                  required
+                />
               </div>
 
               <div className="space-y-1.5">
                 <Label>IBAN</Label>
                 <Input
-                  name="iban"
-                  defaultValue={editingClient.iban ?? ""}
                   className="font-mono"
+                  value={editForm.iban}
+                  onChange={(e) =>
+                    setEditForm((p) => ({ ...p, iban: e.target.value }))
+                  }
                 />
               </div>
 
               <div className="space-y-1.5">
                 <Label>BIC</Label>
                 <Input
-                  name="bic"
-                  defaultValue={editingClient.bic ?? ""}
                   className="font-mono"
+                  value={editForm.bic}
+                  onChange={(e) =>
+                    setEditForm((p) => ({ ...p, bic: e.target.value }))
+                  }
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label>Email</Label>
-                  <Input name="email" defaultValue={editingClient.email ?? ""} />
+                  <Input
+                    value={editForm.email}
+                    onChange={(e) =>
+                      setEditForm((p) => ({ ...p, email: e.target.value }))
+                    }
+                  />
                 </div>
+
                 <div className="space-y-1.5">
                   <Label>NIF / CIF</Label>
-                  <Input name="tax_id" defaultValue={editingClient.tax_id ?? ""} />
+                  <Input
+                    value={editForm.tax_id}
+                    onChange={(e) =>
+                      setEditForm((p) => ({ ...p, tax_id: e.target.value }))
+                    }
+                  />
                 </div>
               </div>
 
@@ -697,9 +801,12 @@ function ClientsTab() {
                 <div className="space-y-1.5">
                   <Label>Referencia del mandato</Label>
                   <Input
-                    name="mandate_reference"
-                    defaultValue={
-                      mandatesByClient.get(editingClient.id)?.mandate_reference ?? ""
+                    value={editForm.mandate_reference}
+                    onChange={(e) =>
+                      setEditForm((p) => ({
+                        ...p,
+                        mandate_reference: e.target.value,
+                      }))
                     }
                   />
                 </div>
@@ -708,37 +815,61 @@ function ClientsTab() {
                   <div className="space-y-1.5">
                     <Label>Fecha de firma</Label>
                     <Input
-                      name="mandate_signature_date"
                       type="date"
-                      defaultValue={
-                        mandatesByClient.get(editingClient.id)?.signature_date ?? ""
+                      value={editForm.mandate_signature_date}
+                      onChange={(e) =>
+                        setEditForm((p) => ({
+                          ...p,
+                          mandate_signature_date: e.target.value,
+                        }))
                       }
                     />
                   </div>
 
                   <div className="space-y-1.5">
                     <Label>Secuencia SEPA</Label>
-                    <Input
-                      name="mandate_sequence_type"
-                      defaultValue={
-                        mandatesByClient.get(editingClient.id)?.sequence_type ?? "RCUR"
+                    <Select
+                      value={editForm.mandate_sequence_type}
+                      onValueChange={(v) =>
+                        setEditForm((p) => ({
+                          ...p,
+                          mandate_sequence_type: v as MandateSequenceType,
+                        }))
                       }
-                      placeholder="FRST / RCUR / OOFF / FNAL"
-                    />
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="FRST">FRST</SelectItem>
+                        <SelectItem value="RCUR">RCUR</SelectItem>
+                        <SelectItem value="OOFF">OOFF</SelectItem>
+                        <SelectItem value="FNAL">FNAL</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
                   <Label>Estado del mandato</Label>
-                  <Input
-                    name="mandate_status"
-                    defaultValue={
-                      mandatesByClient.get(editingClient.id)?.is_active
-                        ? "activo"
-                        : "pendiente"
+                  <Select
+                    value={editForm.mandate_status}
+                    onValueChange={(v) =>
+                      setEditForm((p) => ({
+                        ...p,
+                        mandate_status: v as MandateStatus,
+                      }))
                     }
-                    placeholder="activo / pendiente / cancelado"
-                  />
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="activo">Activo</SelectItem>
+                      <SelectItem value="pendiente">Pendiente</SelectItem>
+                      <SelectItem value="cancelado">Cancelado</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-1.5">
@@ -757,10 +888,7 @@ function ClientsTab() {
               </div>
 
               <DialogFooter>
-                <Button
-                  type="submit"
-                  disabled={updateClientMut.isPending}
-                >
+                <Button type="submit" disabled={updateClientMut.isPending}>
                   Guardar cambios
                 </Button>
               </DialogFooter>
@@ -781,6 +909,7 @@ function ClientsTab() {
                 <TableHead></TableHead>
               </TableRow>
             </TableHeader>
+
             <TableBody>
               {isLoading && (
                 <TableRow>
@@ -821,7 +950,7 @@ function ClientsTab() {
                       variant="ghost"
                       size="icon"
                       disabled={!canEdit}
-                      onClick={() => setEditingClient(c)}
+                      onClick={() => openEditClient(c)}
                     >
                       <Pencil className="h-4 w-4 text-muted-foreground" />
                     </Button>
@@ -836,15 +965,13 @@ function ClientsTab() {
   );
 }
 
-/* ─────────────────────────────────────────────
-   FACTURAS TAB
-───────────────────────────────────────────── */
 function InvoicesTab() {
   const qc = useQueryClient();
   const { data: ws } = useCurrentWorkspace();
   const canEdit = useCanEdit();
   const { data: clients = [] } = useClients();
   const { data: invoices = [], isLoading } = useInvoices();
+
   const [open, setOpen] = useState(false);
   const [pdfOpen, setPdfOpen] = useState(false);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
@@ -852,21 +979,30 @@ function InvoicesTab() {
   const pdfRef = useRef<HTMLInputElement>(null);
 
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
-  const [editClientId, setEditClientId] = useState("");
-  const [editPaymentMethod, setEditPaymentMethod] =
-    useState<PaymentMethod>("transferencia");
-  const [editPaymentStatus, setEditPaymentStatus] =
-    useState<PaymentStatus>("pending");
+  const [createInvoiceForm, setCreateInvoiceForm] =
+    useState<InvoiceFormState>(defaultInvoiceForm());
+  const [pdfInvoiceForm, setPdfInvoiceForm] =
+    useState<InvoiceFormState>(defaultInvoiceForm());
+  const [editInvoiceForm, setEditInvoiceForm] =
+    useState<InvoiceFormState>(defaultInvoiceForm());
 
   function openEditDialog(inv: Invoice) {
     setEditingInvoice(inv);
-    setEditClientId(inv.client_id);
-    setEditPaymentMethod(inv.payment_method);
-    setEditPaymentStatus(inv.payment_status);
+    setEditInvoiceForm({
+      client_id: inv.client_id,
+      invoice_number: inv.invoice_number,
+      issue_date: inv.issue_date,
+      due_date: inv.due_date,
+      amount: String(inv.amount),
+      concept: inv.concept ?? "",
+      payment_method: inv.payment_method,
+      payment_status: inv.payment_status,
+    });
   }
 
   function closeEditDialog() {
     setEditingInvoice(null);
+    setEditInvoiceForm(defaultInvoiceForm());
   }
 
   const updateInvoiceMut = useMutation({
@@ -912,30 +1048,6 @@ function InvoicesTab() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  function onEditSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if (!editingInvoice) return;
-
-    const fd = new FormData(e.currentTarget);
-    const amount = Number(fd.get("amount"));
-    if (!isFinite(amount) || amount <= 0) {
-      return toast.error("Importe inválido");
-    }
-
-    updateInvoiceMut.mutate({
-      id: editingInvoice.id,
-      client_id: editClientId,
-      invoice_number: String(fd.get("invoice_number")),
-      issue_date: String(fd.get("issue_date")),
-      due_date: String(fd.get("due_date")),
-      amount,
-      concept: String(fd.get("concept") ?? "").trim() || null,
-      payment_method: editPaymentMethod,
-      payment_status: editPaymentStatus,
-      existing_paid_at: editingInvoice.paid_at,
-    });
-  }
-
   const createMut = useMutation({
     mutationFn: async (
       payload: Omit<
@@ -975,6 +1087,7 @@ function InvoicesTab() {
       toast.success("Factura creada");
       qc.invalidateQueries({ queryKey: ["invoices"] });
       setOpen(false);
+      setCreateInvoiceForm(defaultInvoiceForm());
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -1068,9 +1181,7 @@ function InvoicesTab() {
           continue;
         }
 
-        const due_date =
-          parseDate(r.due_date || r.vencimiento || "") ||
-          new Date().toISOString().slice(0, 10);
+        const due_date = parseDate(r.due_date || r.vencimiento || "") || today();
         const issue_date = parseDate(r.issue_date || r.fecha || "") || due_date;
 
         toInsert.push({
@@ -1163,6 +1274,7 @@ function InvoicesTab() {
       toast.success("PDF subido y factura creada");
       setPdfOpen(false);
       setPdfFile(null);
+      setPdfInvoiceForm(defaultInvoiceForm());
       qc.invalidateQueries({ queryKey: ["invoices"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -1170,24 +1282,57 @@ function InvoicesTab() {
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const fd = new FormData(e.currentTarget);
-    const amount = Number(fd.get("amount"));
 
-    if (!isFinite(amount) || amount <= 0) {
-      return toast.error("Importe inválido");
+    try {
+      const client_id = validateRequired(createInvoiceForm.client_id, "Cliente");
+      const invoice_number = validateRequired(
+        createInvoiceForm.invoice_number,
+        "Número",
+      );
+      const amount = validatePositiveAmount(createInvoiceForm.amount);
+
+      createMut.mutate({
+        client_id,
+        mandate_id: null,
+        invoice_number,
+        issue_date: createInvoiceForm.issue_date,
+        due_date: validateRequired(createInvoiceForm.due_date, "Vencimiento"),
+        amount,
+        concept: normalizeNullable(createInvoiceForm.concept),
+        payment_method: createInvoiceForm.payment_method,
+        payment_status: createInvoiceForm.payment_status,
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Error al crear factura");
     }
+  }
 
-    createMut.mutate({
-      client_id: String(fd.get("client_id")),
-      mandate_id: null,
-      invoice_number: String(fd.get("invoice_number")),
-      issue_date: String(fd.get("issue_date")),
-      due_date: String(fd.get("due_date")),
-      amount,
-      concept: String(fd.get("concept") ?? "").trim() || null,
-      payment_method: String(fd.get("payment_method") ?? "transferencia") as PaymentMethod,
-      payment_status: String(fd.get("payment_status") ?? "pending") as PaymentStatus,
-    });
+  function onEditSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!editingInvoice) return;
+
+    try {
+      const client_id = validateRequired(editInvoiceForm.client_id, "Cliente");
+      const invoice_number = validateRequired(editInvoiceForm.invoice_number, "Número");
+      const amount = validatePositiveAmount(editInvoiceForm.amount);
+
+      updateInvoiceMut.mutate({
+        id: editingInvoice.id,
+        client_id,
+        invoice_number,
+        issue_date: editInvoiceForm.issue_date,
+        due_date: validateRequired(editInvoiceForm.due_date, "Vencimiento"),
+        amount,
+        concept: normalizeNullable(editInvoiceForm.concept),
+        payment_method: editInvoiceForm.payment_method,
+        payment_status: editInvoiceForm.payment_status,
+        existing_paid_at: editingInvoice.paid_at,
+      });
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Error al actualizar factura",
+      );
+    }
   }
 
   const clientName = (id: string) => clients.find((c) => c.id === id)?.name ?? "—";
@@ -1205,22 +1350,25 @@ function InvoicesTab() {
     e.preventDefault();
     if (!pdfFile) return toast.error("Selecciona un PDF");
 
-    const fd = new FormData(e.currentTarget);
-    const amount = Number(fd.get("amount"));
+    try {
+      const client_id = validateRequired(pdfInvoiceForm.client_id, "Cliente");
+      const invoice_number = validateRequired(pdfInvoiceForm.invoice_number, "Número");
+      const amount = validatePositiveAmount(pdfInvoiceForm.amount);
 
-    if (!isFinite(amount) || amount <= 0) {
-      return toast.error("Importe inválido");
+      importPdfMut.mutate({
+        file: pdfFile,
+        client_id,
+        invoice_number,
+        issue_date: pdfInvoiceForm.issue_date,
+        due_date: validateRequired(pdfInvoiceForm.due_date, "Vencimiento"),
+        amount,
+        concept: normalizeNullable(pdfInvoiceForm.concept),
+      });
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Error al importar factura PDF",
+      );
     }
-
-    importPdfMut.mutate({
-      file: pdfFile,
-      client_id: String(fd.get("client_id")),
-      invoice_number: String(fd.get("invoice_number")),
-      issue_date: String(fd.get("issue_date")),
-      due_date: String(fd.get("due_date")),
-      amount,
-      concept: String(fd.get("concept") ?? "").trim() || null,
-    });
   }
 
   return (
@@ -1240,7 +1388,12 @@ function InvoicesTab() {
             <form onSubmit={onEditSubmit} className="space-y-3">
               <div className="space-y-1.5">
                 <Label>Cliente *</Label>
-                <Select value={editClientId} onValueChange={setEditClientId} required>
+                <Select
+                  value={editInvoiceForm.client_id}
+                  onValueChange={(v) =>
+                    setEditInvoiceForm((p) => ({ ...p, client_id: v }))
+                  }
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecciona cliente" />
                   </SelectTrigger>
@@ -1258,8 +1411,13 @@ function InvoicesTab() {
                 <div className="space-y-1.5">
                   <Label>Número *</Label>
                   <Input
-                    name="invoice_number"
-                    defaultValue={editingInvoice.invoice_number}
+                    value={editInvoiceForm.invoice_number}
+                    onChange={(e) =>
+                      setEditInvoiceForm((p) => ({
+                        ...p,
+                        invoice_number: e.target.value,
+                      }))
+                    }
                     required
                   />
                 </div>
@@ -1267,10 +1425,12 @@ function InvoicesTab() {
                 <div className="space-y-1.5">
                   <Label>Importe (€) *</Label>
                   <Input
-                    name="amount"
                     type="number"
                     step="0.01"
-                    defaultValue={editingInvoice.amount}
+                    value={editInvoiceForm.amount}
+                    onChange={(e) =>
+                      setEditInvoiceForm((p) => ({ ...p, amount: e.target.value }))
+                    }
                     required
                   />
                 </div>
@@ -1278,18 +1438,28 @@ function InvoicesTab() {
                 <div className="space-y-1.5">
                   <Label>Emisión</Label>
                   <Input
-                    name="issue_date"
                     type="date"
-                    defaultValue={editingInvoice.issue_date}
+                    value={editInvoiceForm.issue_date}
+                    onChange={(e) =>
+                      setEditInvoiceForm((p) => ({
+                        ...p,
+                        issue_date: e.target.value,
+                      }))
+                    }
                   />
                 </div>
 
                 <div className="space-y-1.5">
                   <Label>Vencimiento *</Label>
                   <Input
-                    name="due_date"
                     type="date"
-                    defaultValue={editingInvoice.due_date}
+                    value={editInvoiceForm.due_date}
+                    onChange={(e) =>
+                      setEditInvoiceForm((p) => ({
+                        ...p,
+                        due_date: e.target.value,
+                      }))
+                    }
                     required
                   />
                 </div>
@@ -1297,14 +1467,24 @@ function InvoicesTab() {
 
               <div className="space-y-1.5">
                 <Label>Concepto</Label>
-                <Input name="concept" defaultValue={editingInvoice.concept ?? ""} />
+                <Input
+                  value={editInvoiceForm.concept}
+                  onChange={(e) =>
+                    setEditInvoiceForm((p) => ({ ...p, concept: e.target.value }))
+                  }
+                />
               </div>
 
               <div className="space-y-1.5">
                 <Label>Método de pago</Label>
                 <Select
-                  value={editPaymentMethod}
-                  onValueChange={(v) => setEditPaymentMethod(v as PaymentMethod)}
+                  value={editInvoiceForm.payment_method}
+                  onValueChange={(v) =>
+                    setEditInvoiceForm((p) => ({
+                      ...p,
+                      payment_method: v as PaymentMethod,
+                    }))
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -1322,15 +1502,20 @@ function InvoicesTab() {
               <div className="space-y-1.5">
                 <Label>Estado</Label>
                 <Select
-                  value={editPaymentStatus}
-                  onValueChange={(v) => setEditPaymentStatus(v as PaymentStatus)}
+                  value={editInvoiceForm.payment_status}
+                  onValueChange={(v) =>
+                    setEditInvoiceForm((p) => ({
+                      ...p,
+                      payment_status: v as PaymentStatus,
+                    }))
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="pending">⏳ Pendiente</SelectItem>
-                    <SelectItem value="paid">✓ Pagada</SelectItem>
+                    <SelectItem value="pending">Pendiente</SelectItem>
+                    <SelectItem value="paid">Pagada</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1360,6 +1545,7 @@ function InvoicesTab() {
             e.currentTarget.value = "";
           }}
         />
+
         <Button
           variant="outline"
           onClick={() => fileRef.current?.click()}
@@ -1376,6 +1562,7 @@ function InvoicesTab() {
           className="hidden"
           onChange={handlePdfChange}
         />
+
         <Button
           variant="outline"
           onClick={() => pdfRef.current?.click()}
@@ -1389,7 +1576,10 @@ function InvoicesTab() {
           open={pdfOpen}
           onOpenChange={(next) => {
             setPdfOpen(next);
-            if (!next) setPdfFile(null);
+            if (!next) {
+              setPdfFile(null);
+              setPdfInvoiceForm(defaultInvoiceForm());
+            }
           }}
         >
           <DialogContent>
@@ -1407,7 +1597,12 @@ function InvoicesTab() {
 
               <div className="space-y-1.5">
                 <Label>Cliente *</Label>
-                <Select name="client_id" required>
+                <Select
+                  value={pdfInvoiceForm.client_id}
+                  onValueChange={(v) =>
+                    setPdfInvoiceForm((p) => ({ ...p, client_id: v }))
+                  }
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecciona cliente" />
                   </SelectTrigger>
@@ -1424,37 +1619,69 @@ function InvoicesTab() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label>Número *</Label>
-                  <Input name="invoice_number" required />
+                  <Input
+                    value={pdfInvoiceForm.invoice_number}
+                    onChange={(e) =>
+                      setPdfInvoiceForm((p) => ({
+                        ...p,
+                        invoice_number: e.target.value,
+                      }))
+                    }
+                    required
+                  />
                 </div>
 
                 <div className="space-y-1.5">
                   <Label>Importe (€) *</Label>
-                  <Input name="amount" type="number" step="0.01" required />
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={pdfInvoiceForm.amount}
+                    onChange={(e) =>
+                      setPdfInvoiceForm((p) => ({ ...p, amount: e.target.value }))
+                    }
+                    required
+                  />
                 </div>
 
                 <div className="space-y-1.5">
                   <Label>Emisión</Label>
                   <Input
-                    name="issue_date"
                     type="date"
-                    defaultValue={new Date().toISOString().slice(0, 10)}
+                    value={pdfInvoiceForm.issue_date}
+                    onChange={(e) =>
+                      setPdfInvoiceForm((p) => ({
+                        ...p,
+                        issue_date: e.target.value,
+                      }))
+                    }
                   />
                 </div>
 
                 <div className="space-y-1.5">
                   <Label>Vencimiento *</Label>
                   <Input
-                    name="due_date"
                     type="date"
+                    value={pdfInvoiceForm.due_date}
+                    onChange={(e) =>
+                      setPdfInvoiceForm((p) => ({
+                        ...p,
+                        due_date: e.target.value,
+                      }))
+                    }
                     required
-                    defaultValue={new Date().toISOString().slice(0, 10)}
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
                 <Label>Concepto</Label>
-                <Input name="concept" />
+                <Input
+                  value={pdfInvoiceForm.concept}
+                  onChange={(e) =>
+                    setPdfInvoiceForm((p) => ({ ...p, concept: e.target.value }))
+                  }
+                />
               </div>
 
               <DialogFooter>
@@ -1466,7 +1693,13 @@ function InvoicesTab() {
           </DialogContent>
         </Dialog>
 
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog
+          open={open}
+          onOpenChange={(v) => {
+            setOpen(v);
+            if (!v) setCreateInvoiceForm(defaultInvoiceForm());
+          }}
+        >
           <DialogTrigger asChild>
             <Button disabled={!canEdit}>
               <Plus className="mr-2 h-4 w-4" />
@@ -1482,7 +1715,12 @@ function InvoicesTab() {
             <form onSubmit={onSubmit} className="space-y-3">
               <div className="space-y-1.5">
                 <Label>Cliente *</Label>
-                <Select name="client_id" required>
+                <Select
+                  value={createInvoiceForm.client_id}
+                  onValueChange={(v) =>
+                    setCreateInvoiceForm((p) => ({ ...p, client_id: v }))
+                  }
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecciona cliente" />
                   </SelectTrigger>
@@ -1499,42 +1737,82 @@ function InvoicesTab() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label>Número *</Label>
-                  <Input name="invoice_number" required />
+                  <Input
+                    value={createInvoiceForm.invoice_number}
+                    onChange={(e) =>
+                      setCreateInvoiceForm((p) => ({
+                        ...p,
+                        invoice_number: e.target.value,
+                      }))
+                    }
+                    required
+                  />
                 </div>
 
                 <div className="space-y-1.5">
                   <Label>Importe (€) *</Label>
-                  <Input name="amount" type="number" step="0.01" required />
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={createInvoiceForm.amount}
+                    onChange={(e) =>
+                      setCreateInvoiceForm((p) => ({ ...p, amount: e.target.value }))
+                    }
+                    required
+                  />
                 </div>
 
                 <div className="space-y-1.5">
                   <Label>Emisión</Label>
                   <Input
-                    name="issue_date"
                     type="date"
-                    defaultValue={new Date().toISOString().slice(0, 10)}
+                    value={createInvoiceForm.issue_date}
+                    onChange={(e) =>
+                      setCreateInvoiceForm((p) => ({
+                        ...p,
+                        issue_date: e.target.value,
+                      }))
+                    }
                   />
                 </div>
 
                 <div className="space-y-1.5">
                   <Label>Vencimiento *</Label>
                   <Input
-                    name="due_date"
                     type="date"
+                    value={createInvoiceForm.due_date}
+                    onChange={(e) =>
+                      setCreateInvoiceForm((p) => ({
+                        ...p,
+                        due_date: e.target.value,
+                      }))
+                    }
                     required
-                    defaultValue={new Date().toISOString().slice(0, 10)}
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
                 <Label>Concepto</Label>
-                <Input name="concept" />
+                <Input
+                  value={createInvoiceForm.concept}
+                  onChange={(e) =>
+                    setCreateInvoiceForm((p) => ({ ...p, concept: e.target.value }))
+                  }
+                />
               </div>
 
               <div className="space-y-1.5">
                 <Label>Método de pago</Label>
-                <Select name="payment_method" defaultValue="transferencia">
+                <Select
+                  value={createInvoiceForm.payment_method}
+                  onValueChange={(v) =>
+                    setCreateInvoiceForm((p) => ({
+                      ...p,
+                      payment_method: v as PaymentMethod,
+                    }))
+                  }
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecciona método" />
                   </SelectTrigger>
@@ -1550,13 +1828,21 @@ function InvoicesTab() {
 
               <div className="space-y-1.5">
                 <Label>Estado inicial</Label>
-                <Select name="payment_status" defaultValue="pending">
+                <Select
+                  value={createInvoiceForm.payment_status}
+                  onValueChange={(v) =>
+                    setCreateInvoiceForm((p) => ({
+                      ...p,
+                      payment_status: v as PaymentStatus,
+                    }))
+                  }
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecciona estado" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="pending">⏳ Pendiente</SelectItem>
-                    <SelectItem value="paid">✓ Pagada</SelectItem>
+                    <SelectItem value="pending">Pendiente</SelectItem>
+                    <SelectItem value="paid">Pagada</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1627,7 +1913,9 @@ function InvoicesTab() {
                         })
                       }
                       disabled={
-                        updatePaymentMethodMut.isPending || toggleStatusMut.isPending
+                        !canEdit ||
+                        updatePaymentMethodMut.isPending ||
+                        toggleStatusMut.isPending
                       }
                     >
                       <SelectTrigger className="h-8 w-auto min-w-[120px] text-xs border-none bg-transparent shadow-none focus:ring-0">
@@ -1650,22 +1938,22 @@ function InvoicesTab() {
                           inv.payment_status === "paid"
                             ? "default"
                             : inv.status === "included"
-                            ? "secondary"
-                            : "outline"
+                              ? "secondary"
+                              : "outline"
                         }
                         className={
                           inv.payment_status === "paid"
                             ? "bg-green-600 hover:bg-green-700"
                             : inv.status === "included"
-                            ? ""
-                            : "border-amber-500 text-amber-700"
+                              ? ""
+                              : "border-amber-500 text-amber-700"
                         }
                       >
                         {inv.payment_status === "paid"
-                          ? "✓ Pagada"
+                          ? "Pagada"
                           : inv.status === "included"
-                          ? "En remesa"
-                          : "⏳ Pendiente"}
+                            ? "En remesa"
+                            : "Pendiente"}
                       </Badge>
 
                       <Button
@@ -1730,9 +2018,6 @@ function InvoicesTab() {
   );
 }
 
-/* ─────────────────────────────────────────────
-   REMESAS TAB
-───────────────────────────────────────────── */
 function RemittanceTab() {
   const qc = useQueryClient();
   const { data: ws } = useCurrentWorkspace();
@@ -1752,13 +2037,14 @@ function RemittanceTab() {
     new Date(Date.now() + 5 * 86400000).toISOString().slice(0, 10),
   );
   const [issues, setIssues] = useState<string[]>([]);
-
   const [editingRemittance, setEditingRemittance] = useState<Remittance | null>(null);
   const [editRemittanceStatus, setEditRemittanceStatus] = useState("");
   const [editRemittanceCollectionDate, setEditRemittanceCollectionDate] =
     useState("");
 
-  const pending = invoices.filter((i) => i.payment_status === "pending" && i.status !== "included");
+  const pending = invoices.filter(
+    (i) => i.payment_status === "pending" && i.status !== "included",
+  );
 
   const total = useMemo(
     () => invoices.filter((i) => selected.has(i.id)).reduce((s, i) => s + i.amount, 0),
@@ -2239,7 +2525,11 @@ function RemittanceTab() {
                         size="icon"
                         disabled={!canEdit}
                         onClick={() => {
-                          if (confirm("¿Eliminar remesa? Las facturas volverán a pendientes.")) {
+                          if (
+                            confirm(
+                              "¿Eliminar remesa? Las facturas volverán a pendientes.",
+                            )
+                          ) {
                             deleteRemittanceMut.mutate(r.id);
                           }
                         }}
@@ -2258,9 +2548,6 @@ function RemittanceTab() {
   );
 }
 
-/* ─────────────────────────────────────────────
-   HISTÓRICO TAB
-───────────────────────────────────────────── */
 function HistoryTab() {
   const { data: remittances = [], isLoading } = useRemittances();
 
