@@ -62,7 +62,7 @@ function ClientDetail() {
     },
   });
 
-  const createMandate = useMutation({
+    const createMandate = useMutation({
     mutationFn: async (m: {
       mandate_reference: string;
       iban: string;
@@ -70,9 +70,14 @@ function ClientDetail() {
       debtor_name: string;
       signature_date: string;
     }) => {
-      if (!ws) throw new Error("Sin workspace");
+      const workspaceId = ws?.id;
+
+      if (!workspaceId) {
+        throw new Error("Workspace no disponible al guardar el mandato SEPA");
+      }
+
       const { error } = await supabase.from("sepa_mandates").insert({
-        workspace_id: ws.id,
+        workspace_id: workspaceId,
         client_id: id,
         mandate_reference: m.mandate_reference,
         iban: m.iban.replace(/\s+/g, "").toUpperCase(),
@@ -81,6 +86,7 @@ function ClientDetail() {
         signature_date: m.signature_date,
         sequence_type: "RCUR",
       });
+
       if (error) throw error;
     },
     onSuccess: () => {
