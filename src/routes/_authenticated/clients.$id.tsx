@@ -43,7 +43,12 @@ function ClientDetail() {
   const { data: client } = useQuery({
     queryKey: ["client", id],
     queryFn: async () => {
-      const { data, error } = await supabase.from("clients").select("*").eq("id", id).maybeSingle();
+      const { data, error } = await supabase
+        .from("clients")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
+
       if (error) throw error;
       return data;
     },
@@ -57,12 +62,13 @@ function ClientDetail() {
         .select("*")
         .eq("client_id", id)
         .order("created_at", { ascending: false });
+
       if (error) throw error;
       return data ?? [];
     },
   });
 
-    const createMandate = useMutation({
+  const createMandate = useMutation({
     mutationFn: async (m: {
       mandate_reference: string;
       iban: string;
@@ -94,7 +100,9 @@ function ClientDetail() {
       qc.invalidateQueries({ queryKey: ["mandates", id] });
       setOpen(false);
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => {
+      toast.error(e.message);
+    },
   });
 
   const deleteMandate = useMutation({
@@ -102,20 +110,31 @@ function ClientDetail() {
       const { error } = await supabase.from("sepa_mandates").delete().eq("id", mid);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["mandates", id] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["mandates", id] });
+      toast.success("Mandato eliminado");
+    },
+    onError: (e: Error) => {
+      toast.error(e.message);
+    },
   });
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+
     const fd = new FormData(e.currentTarget);
-    const iban = String(fd.get("iban") ?? "");
-    if (!isValidIban(iban)) return toast.error("IBAN no válido");
+    const iban = String(fd.get("iban") ?? "").trim();
+
+    if (!isValidIban(iban)) {
+      return toast.error("IBAN no válido");
+    }
+
     createMandate.mutate({
-      mandate_reference: String(fd.get("mandate_reference") ?? ""),
+      mandate_reference: String(fd.get("mandate_reference") ?? "").trim(),
       iban,
       bic: String(fd.get("bic") ?? "").trim() || null,
-      debtor_name: String(fd.get("debtor_name") ?? "") || client?.name || "",
-      signature_date: String(fd.get("signature_date") ?? ""),
+      debtor_name: String(fd.get("debtor_name") ?? "").trim() || client?.name || "",
+      signature_date: String(fd.get("signature_date") ?? "").trim(),
     });
   }
 
@@ -160,6 +179,7 @@ function ClientDetail() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Mandatos SEPA</CardTitle>
+
             <Dialog open={open} onOpenChange={setOpen}>
               <DialogTrigger asChild>
                 <Button size="sm">
@@ -167,10 +187,12 @@ function ClientDetail() {
                   Nuevo mandato
                 </Button>
               </DialogTrigger>
+
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Nuevo mandato SEPA</DialogTitle>
                 </DialogHeader>
+
                 <form onSubmit={onSubmit} className="space-y-3">
                   <div className="space-y-1.5">
                     <Label htmlFor="mandate_reference">Referencia mandato *</Label>
@@ -181,10 +203,16 @@ function ClientDetail() {
                       maxLength={35}
                     />
                   </div>
+
                   <div className="space-y-1.5">
                     <Label htmlFor="debtor_name">Nombre del deudor</Label>
-                    <Input id="debtor_name" name="debtor_name" defaultValue={client?.name ?? ""} />
+                    <Input
+                      id="debtor_name"
+                      name="debtor_name"
+                      defaultValue={client?.name ?? ""}
+                    />
                   </div>
+
                   <div className="space-y-1.5">
                     <Label htmlFor="iban">IBAN *</Label>
                     <Input
@@ -195,6 +223,7 @@ function ClientDetail() {
                       className="font-mono"
                     />
                   </div>
+
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1.5">
                       <Label htmlFor="bic">BIC</Label>
@@ -205,11 +234,13 @@ function ClientDetail() {
                         className="font-mono"
                       />
                     </div>
+
                     <div className="space-y-1.5">
                       <Label htmlFor="signature_date">Fecha firma *</Label>
                       <Input id="signature_date" name="signature_date" type="date" required />
                     </div>
                   </div>
+
                   <DialogFooter>
                     <Button type="submit" disabled={createMandate.isPending}>
                       Guardar
@@ -219,6 +250,7 @@ function ClientDetail() {
               </DialogContent>
             </Dialog>
           </CardHeader>
+
           <CardContent className="p-0">
             <Table>
               <TableHeader>
@@ -230,17 +262,19 @@ function ClientDetail() {
                   <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
+
               <TableBody>
                 {mandates.length === 0 && (
                   <TableRow>
                     <TableCell
                       colSpan={5}
-                      className="text-center py-6 text-sm text-muted-foreground"
+                      className="py-6 text-center text-sm text-muted-foreground"
                     >
                       Sin mandatos.
                     </TableCell>
                   </TableRow>
                 )}
+
                 {mandates.map((m) => (
                   <TableRow key={m.id}>
                     <TableCell className="font-mono text-xs">{m.mandate_reference}</TableCell>
@@ -252,7 +286,9 @@ function ClientDetail() {
                         variant="ghost"
                         size="icon"
                         onClick={() => {
-                          if (confirm("¿Eliminar mandato?")) deleteMandate.mutate(m.id);
+                          if (confirm("¿Eliminar mandato?")) {
+                            deleteMandate.mutate(m.id);
+                          }
                         }}
                       >
                         <Trash2 className="h-4 w-4 text-muted-foreground" />
