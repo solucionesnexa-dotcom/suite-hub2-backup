@@ -6,7 +6,18 @@ ALTER TABLE invoices
 
 ALTER TABLE invoices
   ADD CONSTRAINT invoices_payment_method_check
-    CHECK (payment_method IN ('transferencia','efectivo','bizum','tarjeta','paypal','cheque','otro'));
+  CHECK (
+    payment_method IN (
+      'transferencia',
+      'efectivo',
+      'bizum',
+      'tarjeta',
+      'paypal',
+      'cheque',
+      'domiciliacion',
+      'otro'
+    )
+  );
 
 ALTER TABLE invoices
   ADD CONSTRAINT invoices_payment_status_check
