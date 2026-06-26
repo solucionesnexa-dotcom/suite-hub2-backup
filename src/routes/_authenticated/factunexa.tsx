@@ -347,8 +347,7 @@ function ClientsTab() {
       .replace(/^-+|-+$/g, "")
       .slice(0, 80);
 
-    const path = `mandates/${clientId}/${Date.now()}-${safeName || "mandato"}.pdf`;
-
+    const path = `${ws.id}/mandates/${clientId}/${Date.now()}-${safeName || "mandato"}.pdf`;
     const { error } = await supabase.storage.from("facturas").upload(path, file, {
       contentType: "application/pdf",
       upsert: true,
