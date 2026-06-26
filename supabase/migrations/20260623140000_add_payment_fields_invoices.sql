@@ -5,6 +5,9 @@ ALTER TABLE invoices
   ADD COLUMN IF NOT EXISTS payment_notes text NULL;
 
 ALTER TABLE invoices
+  DROP CONSTRAINT IF EXISTS invoices_payment_method_check;
+
+ALTER TABLE invoices
   ADD CONSTRAINT invoices_payment_method_check
   CHECK (
     payment_method IN (
@@ -20,5 +23,10 @@ ALTER TABLE invoices
   );
 
 ALTER TABLE invoices
+  DROP CONSTRAINT IF EXISTS invoices_payment_status_check;
+
+ALTER TABLE invoices
   ADD CONSTRAINT invoices_payment_status_check
-    CHECK (payment_status IN ('pending','paid'));
+  CHECK (
+    payment_status IN ('pending', 'paid')
+  );
