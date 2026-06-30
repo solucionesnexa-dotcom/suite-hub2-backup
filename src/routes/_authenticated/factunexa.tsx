@@ -2295,7 +2295,7 @@ function RemittanceTab() {
                 e.preventDefault();
                 updateRemittanceMut.mutate({
                   id: editingRemittance.id,
-                  status: editRemittanceStatus,
+                  status: editRemittanceStatus as RemittanceStatus,
                   collection_date: editRemittanceCollectionDate,
                 });
               }}
