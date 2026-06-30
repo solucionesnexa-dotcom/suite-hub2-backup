@@ -77,6 +77,7 @@ type PaymentMethod =
 type PaymentStatus = "pending" | "paid";
 type MandateSequenceType = "FRST" | "RCUR" | "OOFF" | "FNAL";
 type MandateStatus = "activo" | "pendiente" | "cancelado";
+type RemittanceStatus = "draft" | "generated" | "processed" | "submitted";
 
 const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
   { value: "transferencia", label: "Transferencia bancaria" },
