@@ -410,12 +410,14 @@ function ClientsTab() {
 
       const mandatePayload = {
         client_id: payload.id,
+        debtor_name: payload.name,
         mandate_reference: payload.mandate_reference ?? "",
         signature_date: payload.mandate_signature_date || null,
-        iban: payload.iban,
+        iban: payload.iban ?? "",
         bic: payload.bic,
         sequence_type: payload.mandate_sequence_type,
         is_active: payload.mandate_status === "activo",
+        status: payload.mandate_status,
         pdf_path: payload.mandate_pdf_path,
       };
 
@@ -435,9 +437,10 @@ function ClientsTab() {
 
           if (mandateError) throw mandateError;
         } else {
+          if (!ws?.id) throw new Error("Workspace no disponible");
           const { error: mandateError } = await supabase
             .from("sepa_mandates")
-            .insert(mandatePayload);
+            .insert({ ...mandatePayload, workspace_id: ws.id });
 
           if (mandateError) throw mandateError;
         }
