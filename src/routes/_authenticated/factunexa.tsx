@@ -408,11 +408,11 @@ function ClientsTab() {
 
       const existingMandate = mandatesByClient.get(payload.id);
 
-      const mandatePayload = {
+      const mandatePayloadBase = {
         client_id: payload.id,
         debtor_name: payload.name,
         mandate_reference: payload.mandate_reference ?? "",
-        signature_date: payload.mandate_signature_date || null,
+        signature_date: payload.mandate_signature_date ?? "",
         iban: payload.iban ?? "",
         bic: payload.bic,
         sequence_type: payload.mandate_sequence_type,
@@ -422,25 +422,31 @@ function ClientsTab() {
       };
 
       const hasMandateData =
-        !!mandatePayload.mandate_reference ||
-        !!mandatePayload.signature_date ||
-        !!mandatePayload.iban ||
-        !!mandatePayload.bic ||
-        !!mandatePayload.pdf_path;
+        !!mandatePayloadBase.mandate_reference ||
+        !!mandatePayloadBase.signature_date ||
+        !!mandatePayloadBase.iban ||
+        !!mandatePayloadBase.bic ||
+        !!mandatePayloadBase.pdf_path;
 
       if (hasMandateData) {
         if (existingMandate?.id) {
           const { error: mandateError } = await supabase
             .from("sepa_mandates")
-            .update(mandatePayload)
+            .update(mandatePayloadBase)
             .eq("id", existingMandate.id);
 
           if (mandateError) throw mandateError;
         } else {
           if (!ws?.id) throw new Error("Workspace no disponible");
+          if (!mandatePayloadBase.mandate_reference)
+            throw new Error("Referencia de mandato obligatoria");
+          if (!mandatePayloadBase.signature_date)
+            throw new Error("Fecha de firma del mandato obligatoria");
+          if (!mandatePayloadBase.iban)
+            throw new Error("IBAN del mandato obligatorio");
           const { error: mandateError } = await supabase
             .from("sepa_mandates")
-            .insert({ ...mandatePayload, workspace_id: ws.id });
+            .insert({ ...mandatePayloadBase, workspace_id: ws.id });
 
           if (mandateError) throw mandateError;
         }
