@@ -516,6 +516,7 @@ export type Database = {
           transaction_count: number
           workspace_id: string
           xml_content: string
+          xml_path: string | null
         }
         Insert: {
           collection_date: string
@@ -533,6 +534,7 @@ export type Database = {
           transaction_count: number
           workspace_id: string
           xml_content: string
+          xml_path?: string | null
         }
         Update: {
           collection_date?: string
@@ -550,6 +552,7 @@ export type Database = {
           transaction_count?: number
           workspace_id?: string
           xml_content?: string
+          xml_path?: string | null
         }
         Relationships: [
           {
