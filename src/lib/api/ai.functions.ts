@@ -20,7 +20,7 @@ const caseSchema = z.object({
 });
 
 export const generateSopWithAi = createServerFn({ method: "POST" })
-  .validator(sopSchema)
+  .inputValidator(sopSchema)
   .handler(async ({ data }) => {
     const prompt = `Eres un experto en documentacion de procesos empresariales. A partir de la descripcion siguiente, genera un SOP estructurado con: objetivo, responsable, minimo 5 pasos numerados (cada uno con descripcion, condicion de entrada, condicion de salida y herramienta usada si aplica), y un entregable final. Responde solo JSON con esta estructura: {"objetivo":"", "responsable":"", "pasos":[{"numero":1,"descripcion":"","condicion_entrada":"","condicion_salida":"","herramienta":""}], "entregable":""}.
 
