@@ -323,6 +323,7 @@ function FactuNexaPage() {
 function ClientsTab() {
   const qc = useQueryClient();
   const canEdit = useCanEdit();
+  const { data: ws } = useCurrentWorkspace();
   const { data: clients = [], isLoading } = useClients();
   const { data: mandatesByClient = new Map<string, SepaMandate>() } =
     useActiveMandates();
@@ -334,7 +335,11 @@ function ClientsTab() {
   const [createForm, setCreateForm] = useState<ClientFormState>(defaultClientForm());
   const [editForm, setEditForm] = useState<ClientFormState>(defaultClientForm());
 
-  const uploadMandatePdf = async (clientId: string, file: File) => {
+  const uploadMandatePdf = async (
+    workspaceId: string,
+    clientId: string,
+    file: File,
+  ) => {
     if (file.type !== "application/pdf") {
       throw new Error("Solo se admiten PDF para el mandato SEPA");
     }
@@ -347,18 +352,28 @@ function ClientsTab() {
       .replace(/^-+|-+$/g, "")
       .slice(0, 80);
 
-    const path = `${ws.id}/mandates/${clientId}/${Date.now()}-${safeName || "mandato"}.pdf`;
-    const { error } = await supabase.storage.from("facturas").upload(path, file, {
-      contentType: "application/pdf",
-      upsert: true,
-    });
+    // Path MUST start with workspaceId to satisfy storage RLS policy
+    const path = `${workspaceId}/${clientId}/${Date.now()}-${safeName || "mandato"}.pdf`;
+    const { error } = await supabase.storage
+      .from("sepa-mandates")
+      .upload(path, file, {
+        contentType: "application/pdf",
+        upsert: true,
+      });
 
     if (error) {
-      throw new Error(
-        error.message.includes("Bucket not found")
-          ? "No existe un bucket disponible para PDFs."
-          : error.message,
-      );
+      const msg = error.message || "";
+      if (msg.includes("Bucket not found")) {
+        throw new Error(
+          "No existe el bucket 'sepa-mandates'. Pide al admin que aplique las migraciones de Storage.",
+        );
+      }
+      if (msg.toLowerCase().includes("row-level security")) {
+        throw new Error(
+          "El path no cumple la policy del bucket (debe empezar por el workspace).",
+        );
+      }
+      throw new Error(`No se pudo subir el PDF del mandato: ${msg}`);
     }
 
     return path;
