@@ -486,11 +486,12 @@ function ClientsTab() {
     if (!editingClient) return;
 
     try {
+      if (!ws?.id) throw new Error("Workspace no disponible");
       const name = validateRequired(editForm.name, "Nombre");
       let mandatePdfPath = mandatesByClient.get(editingClient.id)?.pdf_path ?? null;
 
       if (mandateFile) {
-        mandatePdfPath = await uploadMandatePdf(editingClient.id, mandateFile);
+        mandatePdfPath = await uploadMandatePdf(ws.id, editingClient.id, mandateFile);
       }
 
       updateClientMut.mutate({
@@ -515,11 +516,13 @@ function ClientsTab() {
     e.preventDefault();
 
     try {
+      if (!ws?.id) throw new Error("Workspace no disponible");
       const name = validateRequired(createForm.name, "Nombre");
 
       const { data: client, error: clientError } = await supabase
         .from("clients")
         .insert({
+          workspace_id: ws.id,
           name,
           iban: normalizeNullable(createForm.iban),
           bic: normalizeNullable(createForm.bic),
@@ -534,25 +537,31 @@ function ClientsTab() {
 
       let mandatePdfPath: string | null = null;
       if (newMandateFile) {
-        mandatePdfPath = await uploadMandatePdf(client.id, newMandateFile);
+        mandatePdfPath = await uploadMandatePdf(ws.id, client.id, newMandateFile);
       }
 
+      const mandateRef = normalizeNullable(createForm.mandate_reference);
+      const mandateSig = normalizeNullable(createForm.mandate_signature_date);
+      const mandateIban = normalizeNullable(createForm.iban);
+
       const hasMandateData =
-        !!normalizeNullable(createForm.mandate_reference) ||
-        !!normalizeNullable(createForm.mandate_signature_date) ||
-        !!normalizeNullable(createForm.iban) ||
-        !!normalizeNullable(createForm.bic) ||
-        !!mandatePdfPath;
+        !!mandateRef || !!mandateSig || !!mandateIban || !!mandatePdfPath;
 
       if (hasMandateData) {
+        if (!mandateRef) throw new Error("Referencia de mandato obligatoria");
+        if (!mandateSig) throw new Error("Fecha de firma del mandato obligatoria");
+        if (!mandateIban) throw new Error("IBAN del mandato obligatorio");
         const { error: mandateError } = await supabase.from("sepa_mandates").insert({
+          workspace_id: ws.id,
           client_id: client.id,
-          mandate_reference: normalizeNullable(createForm.mandate_reference) ?? "",
-          signature_date: normalizeNullable(createForm.mandate_signature_date),
-          iban: normalizeNullable(createForm.iban),
+          debtor_name: name,
+          mandate_reference: mandateRef,
+          signature_date: mandateSig,
+          iban: mandateIban,
           bic: normalizeNullable(createForm.bic),
           sequence_type: createForm.mandate_sequence_type,
           is_active: createForm.mandate_status === "activo",
+          status: createForm.mandate_status,
           pdf_path: mandatePdfPath,
         });
 
