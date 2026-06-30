@@ -31,7 +31,7 @@ Descripcion: ${data.descripcion}`;
   });
 
 export const generateCaseStudyWithAi = createServerFn({ method: "POST" })
-  .validator(caseSchema)
+  .inputValidator(caseSchema)
   .handler(async ({ data }) => {
     const prompt = `Eres un copywriter B2B especialista en agencias de automatizacion. Genera dos outputs a partir del siguiente caso de exito: 1) Un post para LinkedIn de maximo 1500 caracteres, con gancho inicial impactante, descripcion del problema, solucion implementada, resultados y CTA. 2) Un texto de caso de exito para catalogo de ventas en formato narrativo de 3 parrafos. No uses el nombre del cliente si cliente_anonimo es true. Responde solo JSON: {"post_linkedin":"", "pdf_contenido":""}.
 
