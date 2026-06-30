@@ -2075,8 +2075,13 @@ function RemittanceTab() {
   const [editRemittanceCollectionDate, setEditRemittanceCollectionDate] =
     useState("");
 
+  // Solo elegibles para remesa SEPA: domiciliación + pendiente + no incluidas + con mandato activo
   const pending = invoices.filter(
-    (i) => i.payment_status === "pending" && i.status !== "included",
+    (i) =>
+      i.payment_method === "domiciliacion" &&
+      i.payment_status === "pending" &&
+      i.status !== "included" &&
+      mandatesByClient.has(i.client_id),
   );
 
   const total = useMemo(
