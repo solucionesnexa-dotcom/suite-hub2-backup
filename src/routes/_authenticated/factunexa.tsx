@@ -77,6 +77,7 @@ type PaymentMethod =
 type PaymentStatus = "pending" | "paid";
 type MandateSequenceType = "FRST" | "RCUR" | "OOFF" | "FNAL";
 type MandateStatus = "activo" | "pendiente" | "cancelado";
+type RemittanceStatus = "draft" | "generated" | "processed" | "submitted";
 
 const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
   { value: "transferencia", label: "Transferencia bancaria" },
@@ -323,6 +324,7 @@ function FactuNexaPage() {
 function ClientsTab() {
   const qc = useQueryClient();
   const canEdit = useCanEdit();
+  const { data: ws } = useCurrentWorkspace();
   const { data: clients = [], isLoading } = useClients();
   const { data: mandatesByClient = new Map<string, SepaMandate>() } =
     useActiveMandates();
@@ -334,7 +336,11 @@ function ClientsTab() {
   const [createForm, setCreateForm] = useState<ClientFormState>(defaultClientForm());
   const [editForm, setEditForm] = useState<ClientFormState>(defaultClientForm());
 
-  const uploadMandatePdf = async (clientId: string, file: File) => {
+  const uploadMandatePdf = async (
+    workspaceId: string,
+    clientId: string,
+    file: File,
+  ) => {
     if (file.type !== "application/pdf") {
       throw new Error("Solo se admiten PDF para el mandato SEPA");
     }
@@ -347,18 +353,28 @@ function ClientsTab() {
       .replace(/^-+|-+$/g, "")
       .slice(0, 80);
 
-    const path = `${ws.id}/mandates/${clientId}/${Date.now()}-${safeName || "mandato"}.pdf`;
-    const { error } = await supabase.storage.from("facturas").upload(path, file, {
-      contentType: "application/pdf",
-      upsert: true,
-    });
+    // Path MUST start with workspaceId to satisfy storage RLS policy
+    const path = `${workspaceId}/${clientId}/${Date.now()}-${safeName || "mandato"}.pdf`;
+    const { error } = await supabase.storage
+      .from("sepa-mandates")
+      .upload(path, file, {
+        contentType: "application/pdf",
+        upsert: true,
+      });
 
     if (error) {
-      throw new Error(
-        error.message.includes("Bucket not found")
-          ? "No existe un bucket disponible para PDFs."
-          : error.message,
-      );
+      const msg = error.message || "";
+      if (msg.includes("Bucket not found")) {
+        throw new Error(
+          "No existe el bucket 'sepa-mandates'. Pide al admin que aplique las migraciones de Storage.",
+        );
+      }
+      if (msg.toLowerCase().includes("row-level security")) {
+        throw new Error(
+          "El path no cumple la policy del bucket (debe empezar por el workspace).",
+        );
+      }
+      throw new Error(`No se pudo subir el PDF del mandato: ${msg}`);
     }
 
     return path;
@@ -393,36 +409,45 @@ function ClientsTab() {
 
       const existingMandate = mandatesByClient.get(payload.id);
 
-      const mandatePayload = {
+      const mandatePayloadBase = {
         client_id: payload.id,
+        debtor_name: payload.name,
         mandate_reference: payload.mandate_reference ?? "",
-        signature_date: payload.mandate_signature_date || null,
-        iban: payload.iban,
+        signature_date: payload.mandate_signature_date ?? "",
+        iban: payload.iban ?? "",
         bic: payload.bic,
         sequence_type: payload.mandate_sequence_type,
         is_active: payload.mandate_status === "activo",
+        status: payload.mandate_status,
         pdf_path: payload.mandate_pdf_path,
       };
 
       const hasMandateData =
-        !!mandatePayload.mandate_reference ||
-        !!mandatePayload.signature_date ||
-        !!mandatePayload.iban ||
-        !!mandatePayload.bic ||
-        !!mandatePayload.pdf_path;
+        !!mandatePayloadBase.mandate_reference ||
+        !!mandatePayloadBase.signature_date ||
+        !!mandatePayloadBase.iban ||
+        !!mandatePayloadBase.bic ||
+        !!mandatePayloadBase.pdf_path;
 
       if (hasMandateData) {
         if (existingMandate?.id) {
           const { error: mandateError } = await supabase
             .from("sepa_mandates")
-            .update(mandatePayload)
+            .update(mandatePayloadBase)
             .eq("id", existingMandate.id);
 
           if (mandateError) throw mandateError;
         } else {
+          if (!ws?.id) throw new Error("Workspace no disponible");
+          if (!mandatePayloadBase.mandate_reference)
+            throw new Error("Referencia de mandato obligatoria");
+          if (!mandatePayloadBase.signature_date)
+            throw new Error("Fecha de firma del mandato obligatoria");
+          if (!mandatePayloadBase.iban)
+            throw new Error("IBAN del mandato obligatorio");
           const { error: mandateError } = await supabase
             .from("sepa_mandates")
-            .insert(mandatePayload);
+            .insert({ ...mandatePayloadBase, workspace_id: ws.id });
 
           if (mandateError) throw mandateError;
         }
@@ -462,11 +487,12 @@ function ClientsTab() {
     if (!editingClient) return;
 
     try {
+      if (!ws?.id) throw new Error("Workspace no disponible");
       const name = validateRequired(editForm.name, "Nombre");
       let mandatePdfPath = mandatesByClient.get(editingClient.id)?.pdf_path ?? null;
 
       if (mandateFile) {
-        mandatePdfPath = await uploadMandatePdf(editingClient.id, mandateFile);
+        mandatePdfPath = await uploadMandatePdf(ws.id, editingClient.id, mandateFile);
       }
 
       updateClientMut.mutate({
@@ -491,11 +517,13 @@ function ClientsTab() {
     e.preventDefault();
 
     try {
+      if (!ws?.id) throw new Error("Workspace no disponible");
       const name = validateRequired(createForm.name, "Nombre");
 
       const { data: client, error: clientError } = await supabase
         .from("clients")
         .insert({
+          workspace_id: ws.id,
           name,
           iban: normalizeNullable(createForm.iban),
           bic: normalizeNullable(createForm.bic),
@@ -510,25 +538,31 @@ function ClientsTab() {
 
       let mandatePdfPath: string | null = null;
       if (newMandateFile) {
-        mandatePdfPath = await uploadMandatePdf(client.id, newMandateFile);
+        mandatePdfPath = await uploadMandatePdf(ws.id, client.id, newMandateFile);
       }
 
+      const mandateRef = normalizeNullable(createForm.mandate_reference);
+      const mandateSig = normalizeNullable(createForm.mandate_signature_date);
+      const mandateIban = normalizeNullable(createForm.iban);
+
       const hasMandateData =
-        !!normalizeNullable(createForm.mandate_reference) ||
-        !!normalizeNullable(createForm.mandate_signature_date) ||
-        !!normalizeNullable(createForm.iban) ||
-        !!normalizeNullable(createForm.bic) ||
-        !!mandatePdfPath;
+        !!mandateRef || !!mandateSig || !!mandateIban || !!mandatePdfPath;
 
       if (hasMandateData) {
+        if (!mandateRef) throw new Error("Referencia de mandato obligatoria");
+        if (!mandateSig) throw new Error("Fecha de firma del mandato obligatoria");
+        if (!mandateIban) throw new Error("IBAN del mandato obligatorio");
         const { error: mandateError } = await supabase.from("sepa_mandates").insert({
+          workspace_id: ws.id,
           client_id: client.id,
-          mandate_reference: normalizeNullable(createForm.mandate_reference) ?? "",
-          signature_date: normalizeNullable(createForm.mandate_signature_date),
-          iban: normalizeNullable(createForm.iban),
+          debtor_name: name,
+          mandate_reference: mandateRef,
+          signature_date: mandateSig,
+          iban: mandateIban,
           bic: normalizeNullable(createForm.bic),
           sequence_type: createForm.mandate_sequence_type,
           is_active: createForm.mandate_status === "activo",
+          status: createForm.mandate_status,
           pdf_path: mandatePdfPath,
         });
 
@@ -2041,8 +2075,13 @@ function RemittanceTab() {
   const [editRemittanceCollectionDate, setEditRemittanceCollectionDate] =
     useState("");
 
+  // Solo elegibles para remesa SEPA: domiciliación + pendiente + no incluidas + con mandato activo
   const pending = invoices.filter(
-    (i) => i.payment_status === "pending" && i.status !== "included",
+    (i) =>
+      i.payment_method === "domiciliacion" &&
+      i.payment_status === "pending" &&
+      i.status !== "included" &&
+      mandatesByClient.has(i.client_id),
   );
 
   const total = useMemo(
@@ -2128,6 +2167,24 @@ function RemittanceTab() {
 
       if (error) throw error;
 
+      // Subir XML al bucket 'remesas' (path: {workspace_id}/{remittance_id}.xml)
+      const xmlPath = `${ws.id}/${rem.id}.xml`;
+      const { error: uploadError } = await supabase.storage
+        .from("remesas")
+        .upload(xmlPath, new Blob([xml], { type: "application/xml" }), {
+          contentType: "application/xml",
+          upsert: true,
+        });
+      if (uploadError) {
+        // No bloquea — el XML está en xml_content y se descarga local
+        console.warn("No se pudo subir XML al storage:", uploadError.message);
+      } else {
+        await supabase
+          .from("remittances")
+          .update({ xml_path: xmlPath })
+          .eq("id", rem.id);
+      }
+
       const { error: linkError } = await supabase.from("remittance_invoices").insert(
         input.invoices.map((i) => ({
           remittance_id: rem.id,
@@ -2166,7 +2223,7 @@ function RemittanceTab() {
   const updateRemittanceMut = useMutation({
     mutationFn: async (payload: {
       id: string;
-      status: string;
+      status: RemittanceStatus;
       collection_date: string;
     }) => {
       const { error } = await supabase
@@ -2261,7 +2318,7 @@ function RemittanceTab() {
                 e.preventDefault();
                 updateRemittanceMut.mutate({
                   id: editingRemittance.id,
-                  status: editRemittanceStatus,
+                  status: editRemittanceStatus as RemittanceStatus,
                   collection_date: editRemittanceCollectionDate,
                 });
               }}
