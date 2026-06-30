@@ -2167,6 +2167,25 @@ function RemittanceTab() {
 
       if (error) throw error;
 
+      // Subir XML al bucket 'remesas' (path: {workspace_id}/{remittance_id}.xml)
+      const xmlPath = `${ws.id}/${rem.id}.xml`;
+      const { error: uploadError } = await supabase.storage
+        .from("remesas")
+        .upload(xmlPath, new Blob([xml], { type: "application/xml" }), {
+          contentType: "application/xml",
+          upsert: true,
+        });
+      if (uploadError) {
+        // No bloquea — el XML está en xml_content y se descarga local
+        console.warn("No se pudo subir XML al storage:", uploadError.message);
+      } else {
+        await supabase
+          .from("remittances")
+          // @ts-expect-error xml_path column added in migration; types regenerate next build
+          .update({ xml_path: xmlPath })
+          .eq("id", rem.id);
+      }
+
       const { error: linkError } = await supabase.from("remittance_invoices").insert(
         input.invoices.map((i) => ({
           remittance_id: rem.id,
