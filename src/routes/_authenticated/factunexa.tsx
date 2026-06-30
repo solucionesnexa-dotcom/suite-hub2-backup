@@ -2199,7 +2199,7 @@ function RemittanceTab() {
   const updateRemittanceMut = useMutation({
     mutationFn: async (payload: {
       id: string;
-      status: string;
+      status: RemittanceStatus;
       collection_date: string;
     }) => {
       const { error } = await supabase
