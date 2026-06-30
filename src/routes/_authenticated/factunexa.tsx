@@ -2181,7 +2181,6 @@ function RemittanceTab() {
       } else {
         await supabase
           .from("remittances")
-          // @ts-expect-error xml_path column added in migration; types regenerate next build
           .update({ xml_path: xmlPath })
           .eq("id", rem.id);
       }
