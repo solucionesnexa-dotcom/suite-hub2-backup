@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TrendingUp, TrendingDown, Receipt, Calculator } from "lucide-react";
 import { useContaStats } from "@/hooks/useContaStats";
 import ExpenseList from "@/components/conta/ExpenseList";
@@ -9,13 +10,21 @@ import ExpenseForm from "@/components/conta/ExpenseForm";
 import IncomeForm from "@/components/conta/IncomeForm";
 import TaxPeriodPanel from "@/components/conta/TaxPeriodPanel";
 import PLReport from "@/components/conta/PLReport";
-import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 export default function ContaNexa() {
   const [activeTab, setActiveTab] = useState("dashboard");
-  const { stats, loading } = useContaStats();
+  const [selectedPeriodId, setSelectedPeriodId] = useState<string | null>(null);
+  const { stats, loading } = useContaStats({ periodId: selectedPeriodId });
   const [periods, setPeriods] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (activeTab.startsWith("period-")) {
+      setSelectedPeriodId(activeTab.replace("period-", ""));
+    } else {
+      setSelectedPeriodId(null);
+    }
+  }, [activeTab]);
 
   useEffect(() => {
     let mounted = true;
@@ -101,6 +110,21 @@ export default function ContaNexa() {
                 </Badge>
               </div>
             </div>
+            <div className="mt-3">
+              <Select value={selectedPeriodId ?? "CURRENT"} onValueChange={(value) => setSelectedPeriodId(value === "CURRENT" ? null : value)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Selecciona periodo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="CURRENT">Actual</SelectItem>
+                  {periods.map((period) => (
+                    <SelectItem key={period.id} value={period.id}>
+                      {period.year}·Q{period.quarter} {period.status !== "abierto" ? "(cerrado)" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -119,7 +143,7 @@ export default function ContaNexa() {
         </TabsList>
 
         <TabsContent value="dashboard">
-          <PLReport condensed />
+          <PLReport condensed periodId={selectedPeriodId ?? undefined} />
         </TabsContent>
 
         <TabsContent value="movimientos">
