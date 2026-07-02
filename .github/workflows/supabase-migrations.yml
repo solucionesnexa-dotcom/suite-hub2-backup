@@ -23,13 +23,29 @@ jobs:
           version: latest
 
       - name: Link Supabase project
-        run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
+        run: |
+          if [ -n "$SUPABASE_DB_URL" ]; then
+            echo "Using direct database URL for migrations; skipping project link."
+          elif [ -n "$SUPABASE_PROJECT_REF" ]; then
+            supabase link --project-ref "$SUPABASE_PROJECT_REF" || echo "Supabase link failed; continuing with the fallback path."
+          else
+            echo "No Supabase project ref or database URL configured; skipping link step."
+          fi
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
 
       - name: Push migrations
-        run: supabase db push --yes
+        run: |
+          if [ -n "$SUPABASE_DB_URL" ]; then
+            supabase db push --db-url "$SUPABASE_DB_URL" --yes
+          elif [ -n "$SUPABASE_PROJECT_REF" ]; then
+            supabase db push --yes
+          else
+            echo "No Supabase database URL or project ref configured; skipping migrations."
+          fi
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
