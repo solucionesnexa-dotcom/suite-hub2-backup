@@ -6,6 +6,7 @@ import { TrendingUp, TrendingDown, Receipt, Calculator } from "lucide-react";
 import { useContaStats } from "@/hooks/useContaStats";
 import ExpenseList from "@/components/conta/ExpenseList";
 import ExpenseForm from "@/components/conta/ExpenseForm";
+import IncomeForm from "@/components/conta/IncomeForm";
 import TaxPeriodPanel from "@/components/conta/TaxPeriodPanel";
 import PLReport from "@/components/conta/PLReport";
 
@@ -94,7 +95,7 @@ export default function ContaNexa() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="dashboard">Resumen</TabsTrigger>
-          <TabsTrigger value="gastos">Gastos</TabsTrigger>
+          <TabsTrigger value="movimientos">Movimientos</TabsTrigger>
           <TabsTrigger value="iva">IVA Trimestral</TabsTrigger>
           <TabsTrigger value="pyl">P&L</TabsTrigger>
         </TabsList>
@@ -103,7 +104,7 @@ export default function ContaNexa() {
           <PLReport condensed />
         </TabsContent>
 
-        <TabsContent value="gastos">
+        <TabsContent value="movimientos">
           <div className="space-y-4">
             <ExpenseForm />
             <ExpenseList />

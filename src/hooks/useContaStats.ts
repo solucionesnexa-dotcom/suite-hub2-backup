@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+import { useCurrentWorkspace } from "@/hooks/useCurrentWorkspace";
 import { supabase } from "@/integrations/supabase/client";
 
 export function useContaStats() {
+  const { data: ws } = useCurrentWorkspace();
   const [stats, setStats] = useState({
     monthlyIncome: 0,
     monthlyExpenses: 0,
@@ -13,21 +15,39 @@ export function useContaStats() {
 
   useEffect(() => {
     async function load() {
+      if (!ws) return;
       setLoading(true);
-      const { data: expenses } = await supabase.from("expenses").select("base_amount, vat_amount");
-      const monthlyExpenses = expenses?.reduce((sum, expense) => sum + Number(expense.base_amount ?? 0), 0) ?? 0;
-      const vatPaid = expenses?.reduce((sum, expense) => sum + Number(expense.vat_amount ?? 0), 0) ?? 0;
+      const monthStart = new Date();
+      monthStart.setDate(1);
+      monthStart.setHours(0, 0, 0, 0);
+      const monthEnd = new Date(monthStart);
+      monthEnd.setMonth(monthEnd.getMonth() + 1);
+
+      const { data } = await supabase
+        .from("expenses")
+        .select("entry_type, base_amount, vat_amount, invoice_date")
+        .eq("workspace_id", ws.id)
+        .gte("invoice_date", monthStart.toISOString())
+        .lt("invoice_date", monthEnd.toISOString());
+
+      const monthlyIncome =
+        data?.filter((row) => row.entry_type === "ingreso").reduce((sum, row) => sum + Number(row.base_amount ?? 0), 0) ?? 0;
+      const monthlyExpenses =
+        data?.filter((row) => row.entry_type === "gasto").reduce((sum, row) => sum + Number(row.base_amount ?? 0), 0) ?? 0;
+      const vatPaid =
+        data?.filter((row) => row.entry_type === "gasto").reduce((sum, row) => sum + Number(row.vat_amount ?? 0), 0) ?? 0;
+
       setStats({
-        monthlyIncome: 0,
+        monthlyIncome,
         monthlyExpenses,
-        monthlyResult: -monthlyExpenses,
-        quarterVatResult: -vatPaid,
-        currentQuarter: "Q1",
+        monthlyResult: monthlyIncome - monthlyExpenses,
+        quarterVatResult: monthlyIncome - monthlyExpenses - vatPaid,
+        currentQuarter: `Q${Math.ceil((monthStart.getMonth() + 1) / 3)}`,
       });
       setLoading(false);
     }
     load();
-  }, []);
+  }, [ws]);
 
   return { stats, loading };
 }
