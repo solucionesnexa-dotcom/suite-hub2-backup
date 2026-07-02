@@ -36,12 +36,14 @@ export function useContaStats() {
         data?.filter((row) => row.entry_type === "gasto").reduce((sum, row) => sum + Number(row.base_amount ?? 0), 0) ?? 0;
       const vatPaid =
         data?.filter((row) => row.entry_type === "gasto").reduce((sum, row) => sum + Number(row.vat_amount ?? 0), 0) ?? 0;
+      const vatCollected =
+        data?.filter((row) => row.entry_type === "ingreso").reduce((sum, row) => sum + Number(row.vat_amount ?? 0), 0) ?? 0;
 
       setStats({
         monthlyIncome,
         monthlyExpenses,
         monthlyResult: monthlyIncome - monthlyExpenses,
-        quarterVatResult: monthlyIncome - monthlyExpenses - vatPaid,
+        quarterVatResult: vatCollected - vatPaid,
         currentQuarter: `Q${Math.ceil((monthStart.getMonth() + 1) / 3)}`,
       });
       setLoading(false);
