@@ -2,9 +2,16 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function TaxPeriodPanel() {
   const [periods, setPeriods] = useState<any[]>([]);
+  const [yearInput, setYearInput] = useState<number>(new Date().getFullYear());
+  const [quarterInput, setQuarterInput] = useState<number>(Math.ceil((new Date().getMonth() + 1) / 3));
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingNotes, setEditingNotes] = useState<string | null>(null);
+  const [editingStatus, setEditingStatus] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -19,6 +26,34 @@ export default function TaxPeriodPanel() {
     const quarter = Math.ceil((now.getMonth() + 1) / 3);
     const year = now.getFullYear();
     await supabase.from("tax_periods").upsert({ year, quarter, status: "abierto" }, { onConflict: "year,quarter" });
+    const { data } = await supabase.from("tax_periods").select("*").order("year", { ascending: false }).order("quarter", { ascending: false });
+    setPeriods(data ?? []);
+  }
+
+  async function createPeriod() {
+    await supabase.from("tax_periods").upsert({ year: yearInput, quarter: quarterInput, status: 'abierto' }, { onConflict: "year,quarter" });
+    const { data } = await supabase.from("tax_periods").select("*").order("year", { ascending: false }).order("quarter", { ascending: false });
+    setPeriods(data ?? []);
+  }
+
+  async function startEdit(period: any) {
+    setEditingId(period.id);
+    setEditingNotes(period.notes ?? "");
+    setEditingStatus(period.status ?? "abierto");
+  }
+
+  async function saveEdit() {
+    if (!editingId) return;
+    await supabase.from("tax_periods").update({ notes: editingNotes, status: editingStatus }).eq("id", editingId);
+    const { data } = await supabase.from("tax_periods").select("*").order("year", { ascending: false }).order("quarter", { ascending: false });
+    setPeriods(data ?? []);
+    setEditingId(null);
+    setEditingNotes(null);
+    setEditingStatus(null);
+  }
+
+  async function deletePeriod(id: string) {
+    await supabase.from("tax_periods").delete().eq("id", id);
     const { data } = await supabase.from("tax_periods").select("*").order("year", { ascending: false }).order("quarter", { ascending: false });
     setPeriods(data ?? []);
   }
@@ -55,7 +90,24 @@ export default function TaxPeriodPanel() {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Periodos fiscales</CardTitle>
-        <Button onClick={createCurrentQuarter} variant="outline">Crear periodo actual</Button>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
+            <Input type="number" value={yearInput} onChange={(e) => setYearInput(Number(e.target.value))} className="w-24" />
+            <Select value={String(quarterInput)} onValueChange={(v) => setQuarterInput(Number(v))}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">Q1</SelectItem>
+                <SelectItem value="2">Q2</SelectItem>
+                <SelectItem value="3">Q3</SelectItem>
+                <SelectItem value="4">Q4</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <Button onClick={createPeriod} variant="outline">Crear periodo</Button>
+          <Button onClick={createCurrentQuarter} variant="outline">Crear periodo actual</Button>
+        </div>
       </CardHeader>
       <CardContent>
         {periods.length === 0 ? (
@@ -70,9 +122,31 @@ export default function TaxPeriodPanel() {
                     <span className="text-muted-foreground">{period.status}</span>
                     <Button size="sm" variant="outline" onClick={() => calculatePeriod(period)}>Calcular IVA</Button>
                     <Button size="sm" variant="secondary" onClick={() => closePeriod(period)}>Cerrar periodo</Button>
+                    <Button size="sm" variant="ghost" onClick={() => startEdit(period)}>Editar</Button>
+                    <Button size="sm" variant="destructive" onClick={() => deletePeriod(period.id)}>Eliminar</Button>
                   </div>
                 </div>
-                <div className="mt-2 text-sm text-muted-foreground">IVA repercutido: {period.vat_collected ?? 0} € · IVA soportado: {period.vat_paid ?? 0} € · Resultado: {period.vat_result ?? 0} €</div>
+                {editingId === period.id ? (
+                  <div className="mt-2 grid gap-2">
+                    <Input value={editingNotes ?? ""} onChange={(e) => setEditingNotes(e.target.value)} placeholder="Notas" />
+                    <Select value={editingStatus ?? "abierto"} onValueChange={(v) => setEditingStatus(v)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="abierto">abierto</SelectItem>
+                        <SelectItem value="cerrado">cerrado</SelectItem>
+                        <SelectItem value="presentado">presentado</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={saveEdit}>Guardar</Button>
+                      <Button size="sm" variant="outline" onClick={() => setEditingId(null)}>Cancelar</Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-2 text-sm text-muted-foreground">IVA repercutido: {period.vat_collected ?? 0} € · IVA soportado: {period.vat_paid ?? 0} € · Resultado: {period.vat_result ?? 0} €</div>
+                )}
               </li>
             ))}
           </ul>
