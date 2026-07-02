@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { getServerConfig } from "../config.server";
 
 const searchSchema = z.object({
@@ -23,6 +24,7 @@ export type GoogleMapsLead = {
 };
 
 export const searchGoogleMapsLeads = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator(searchSchema)
   .handler(async ({ data }) => {
     const apiKey = getServerConfig().googleMapsApiKey;

@@ -28,6 +28,7 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY || secrets.VITE_SUPABASE_ANON_KEY }}
 
 # Cloudflare deploy workflow
+
       - name: Deploy to Cloudflare Workers
         run: npx wrangler deploy
         env:

@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 import { db } from "@/lib/nexa";
 import { toast } from "sonner";
 
@@ -64,8 +64,6 @@ function SettingsPage() {
         email: String(fd.get("email") ?? "") || null,
         phone: String(fd.get("phone") ?? "") || null,
         address: String(fd.get("address") ?? "") || null,
-        ai_provider: String(fd.get("ai_provider") ?? "") || null,
-        ai_api_key: String(fd.get("ai_api_key") ?? "") || null,
       };
       const { error } = await db.from("company_settings").upsert(payload, { onConflict: "workspace_id" });
       if (error) throw error;
@@ -118,6 +116,7 @@ function SettingsPage() {
           </CardHeader>
           <CardContent>
             <form
+              key={settings?.id ?? "empty"}
               className="space-y-4"
               onSubmit={(e) => {
                 e.preventDefault();
@@ -132,22 +131,9 @@ function SettingsPage() {
                 <Field label="Telefono" name="phone" defaultValue={settings?.phone} />
                 <Field label="Direccion" name="address" defaultValue={settings?.address} />
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Proveedor IA</Label>
-                  <Select name="ai_provider" defaultValue={settings?.ai_provider ?? "openai"}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="openai">OpenAI</SelectItem>
-                      <SelectItem value="anthropic">Anthropic</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>API key</Label>
-                  <Input name="ai_api_key" type="password" defaultValue={settings?.ai_api_key ?? ""} placeholder="sk-..." />
-                </div>
-              </div>
+              <p className="text-xs text-muted-foreground">
+                Las claves de IA (OpenAI/Anthropic) se gestionan mediante variables de entorno del servidor por seguridad. Contacta con el administrador para configurarlas.
+              </p>
               <Button type="submit" disabled={saveSettingsMut.isPending}>Guardar configuracion</Button>
             </form>
           </CardContent>
