@@ -118,6 +118,7 @@ function SettingsPage() {
           </CardHeader>
           <CardContent>
             <form
+              key={settings?.id ?? "empty"}
               className="space-y-4"
               onSubmit={(e) => {
                 e.preventDefault();
