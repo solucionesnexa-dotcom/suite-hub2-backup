@@ -25,6 +25,7 @@ import { Route as AuthenticatedFactunexaRouteImport } from './routes/_authentica
 import { Route as AuthenticatedDiagnosticoRouteImport } from './routes/_authenticated/diagnostico'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCreditosRouteImport } from './routes/_authenticated/creditos'
+import { Route as AuthenticatedContanexaRouteImport } from './routes/_authenticated/contanexa'
 import { Route as AuthenticatedClientsRouteImport } from './routes/_authenticated/clients'
 import { Route as AuthenticatedCasosExitoRouteImport } from './routes/_authenticated/casos-exito'
 import { Route as AuthenticatedClientsIdRouteImport } from './routes/_authenticated/clients.$id'
@@ -110,6 +111,11 @@ const AuthenticatedCreditosRoute = AuthenticatedCreditosRouteImport.update({
   path: '/creditos',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedContanexaRoute = AuthenticatedContanexaRouteImport.update({
+  id: '/contanexa',
+  path: '/contanexa',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedClientsRoute = AuthenticatedClientsRouteImport.update({
   id: '/clients',
   path: '/clients',
@@ -131,6 +137,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/casos-exito': typeof AuthenticatedCasosExitoRoute
   '/clients': typeof AuthenticatedClientsRouteWithChildren
+  '/contanexa': typeof AuthenticatedContanexaRoute
   '/creditos': typeof AuthenticatedCreditosRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/diagnostico': typeof AuthenticatedDiagnosticoRoute
@@ -151,6 +158,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/casos-exito': typeof AuthenticatedCasosExitoRoute
   '/clients': typeof AuthenticatedClientsRouteWithChildren
+  '/contanexa': typeof AuthenticatedContanexaRoute
   '/creditos': typeof AuthenticatedCreditosRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/diagnostico': typeof AuthenticatedDiagnosticoRoute
@@ -173,6 +181,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/casos-exito': typeof AuthenticatedCasosExitoRoute
   '/_authenticated/clients': typeof AuthenticatedClientsRouteWithChildren
+  '/_authenticated/contanexa': typeof AuthenticatedContanexaRoute
   '/_authenticated/creditos': typeof AuthenticatedCreditosRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/diagnostico': typeof AuthenticatedDiagnosticoRoute
@@ -195,6 +204,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/casos-exito'
     | '/clients'
+    | '/contanexa'
     | '/creditos'
     | '/dashboard'
     | '/diagnostico'
@@ -215,6 +225,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/casos-exito'
     | '/clients'
+    | '/contanexa'
     | '/creditos'
     | '/dashboard'
     | '/diagnostico'
@@ -236,6 +247,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/casos-exito'
     | '/_authenticated/clients'
+    | '/_authenticated/contanexa'
     | '/_authenticated/creditos'
     | '/_authenticated/dashboard'
     | '/_authenticated/diagnostico'
@@ -372,6 +384,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCreditosRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/contanexa': {
+      id: '/_authenticated/contanexa'
+      path: '/contanexa'
+      fullPath: '/contanexa'
+      preLoaderRoute: typeof AuthenticatedContanexaRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/clients': {
       id: '/_authenticated/clients'
       path: '/clients'
@@ -410,6 +429,7 @@ const AuthenticatedClientsRouteWithChildren =
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedCasosExitoRoute: typeof AuthenticatedCasosExitoRoute
   AuthenticatedClientsRoute: typeof AuthenticatedClientsRouteWithChildren
+  AuthenticatedContanexaRoute: typeof AuthenticatedContanexaRoute
   AuthenticatedCreditosRoute: typeof AuthenticatedCreditosRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDiagnosticoRoute: typeof AuthenticatedDiagnosticoRoute
@@ -428,6 +448,7 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCasosExitoRoute: AuthenticatedCasosExitoRoute,
   AuthenticatedClientsRoute: AuthenticatedClientsRouteWithChildren,
+  AuthenticatedContanexaRoute: AuthenticatedContanexaRoute,
   AuthenticatedCreditosRoute: AuthenticatedCreditosRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDiagnosticoRoute: AuthenticatedDiagnosticoRoute,
@@ -454,3 +475,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

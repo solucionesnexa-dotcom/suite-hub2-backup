@@ -39,6 +39,7 @@ const general = [
 
 const billing = [
   { title: "FactuNexa", url: "/factunexa", icon: FileSpreadsheet },
+  { title: "ContaNexa", url: "/contanexa", icon: Calculator },
   { title: "Remesas", url: "/factunexa?tab=remesas", icon: Receipt },
   { title: "Retainer", url: "/retainer", icon: BriefcaseBusiness },
 ];
