@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCurrentWorkspace } from "@/hooks/useCurrentWorkspace";
@@ -17,6 +17,9 @@ export default function ExpenseForm() {
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [baseAmount, setBaseAmount] = useState("");
   const [vatRate, setVatRate] = useState("21");
+  const [categories, setCategories] = useState<{ id: string; name: string; code: string }[]>([]);
+  const [categoryCode, setCategoryCode] = useState<string | null>(null);
+  const [otherDetail, setOtherDetail] = useState("");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -31,6 +34,8 @@ export default function ExpenseForm() {
       due_date: new Date().toISOString().slice(0, 10),
       base_amount: Number(baseAmount),
       vat_rate: Number(vatRate),
+      category_id: categoryCode,
+      category_other: categoryCode === 'OTROS_GASTOS' ? otherDetail : null,
       paid: false,
       paid_at: null,
     });
@@ -45,8 +50,20 @@ export default function ExpenseForm() {
     setInvoiceNumber("");
     setBaseAmount("");
     setVatRate("21");
+    setCategoryCode(null);
+    setOtherDetail("");
     qc.invalidateQueries({ queryKey: ["conta-expenses", ws.id] });
   }
+
+  useEffect(() => {
+    let mounted = true;
+    async function load() {
+      const { data } = await supabase.from("expense_categories").select("id,name,code").eq("type", "gasto").order("name");
+      if (mounted && data) setCategories(data as any);
+    }
+    load();
+    return () => { mounted = false; };
+  }, []);
 
   return (
     <Card>
@@ -81,6 +98,26 @@ export default function ExpenseForm() {
               </SelectContent>
             </Select>
           </div>
+          <div className="space-y-2">
+            <Label>Categoría</Label>
+            <Select value={categoryCode ?? ""} onValueChange={(v) => setCategoryCode(v || null)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {categories.map((c) => (
+                  <SelectItem key={c.id} value={c.code}>{c.name}</SelectItem>
+                ))}
+                <SelectItem value={"OTROS_GASTOS"}>Otros gastos</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {categoryCode === 'OTROS_GASTOS' ? (
+            <div className="space-y-2 md:col-span-2">
+              <Label>Especificar (otros gastos)</Label>
+              <Input value={otherDetail} onChange={(e) => setOtherDetail(e.target.value)} />
+            </div>
+          ) : null}
           <div className="md:col-span-2">
             <Button type="submit" disabled={loading}>{loading ? "Guardando..." : "Guardar gasto"}</Button>
           </div>

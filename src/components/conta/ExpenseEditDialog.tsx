@@ -18,6 +18,8 @@ export type ExpenseFormValues = {
   paid: boolean;
   entry_type: "gasto" | "ingreso";
   notes: string;
+  category_id?: string | null;
+  category_other?: string | null;
 };
 
 const paymentMethods = [
@@ -63,6 +65,8 @@ export function ExpenseEditDialog({
       paid: expense.paid ?? false,
       entry_type: expense.entry_type ?? "gasto",
       notes: expense.notes ?? "",
+        category_id: (expense as any).category_id ?? null,
+        category_other: (expense as any).category_other ?? null,
     },
   });
 
@@ -91,6 +95,10 @@ export function ExpenseEditDialog({
                   <SelectItem value="ingreso">Ingreso</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Categoría (ID)</Label>
+              <Input {...register("category_id")} placeholder="ID categoría (opcional)" />
             </div>
             <div className="space-y-2">
               <Label>Método de pago</Label>
