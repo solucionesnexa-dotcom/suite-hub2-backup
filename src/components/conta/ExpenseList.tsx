@@ -43,6 +43,15 @@ export default function ExpenseList() {
     },
   });
 
+  const { data: categories = [] } = useQuery({
+    queryKey: ["expense-categories", ws?.id],
+    enabled: !!ws,
+    queryFn: async () => {
+      const { data } = await supabase.from("expense_categories").select("id,name").order("name");
+      return data ?? [];
+    },
+  });
+
   async function handleDelete(expenseId: string) {
     const { error } = await supabase.from("expenses").delete().eq("id", expenseId);
     if (error) {
@@ -64,6 +73,8 @@ export default function ExpenseList() {
         due_date: values.due_date,
         base_amount: Number(values.base_amount),
         vat_rate: Number(values.vat_rate),
+        category_id: (values as any).category_id ?? null,
+        category_other: (values as any).category_other ?? null,
         payment_method: values.payment_method,
         paid: values.paid,
         paid_at: values.paid ? new Date(values.due_date).toISOString().slice(0, 10) : null,
@@ -110,12 +121,24 @@ export default function ExpenseList() {
                     <div className="mt-2 text-sm text-muted-foreground">
                       {expense.invoice_number ? `${expense.invoice_number} · ` : ""}
                       {expense.invoice_date ? new Date(expense.invoice_date).toLocaleDateString("es-ES") : "Sin fecha"}
+                      {" · "}
+                      {expense.category_id ? (categories.find((c: any) => c.id === expense.category_id)?.name ?? "") : (expense.category_other ?? "")}
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-right text-lg font-bold">
                       {expense.base_amount.toFixed(2)} €
                     </span>
+                    {expense.pdf_path ? (
+                      <Button size="sm" variant="outline" onClick={async () => {
+                        try {
+                          const { data } = await supabase.storage.from("facturas").createSignedUrl(expense.pdf_path!, 60);
+                          if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+                        } catch (e: any) { toast.error(e?.message ?? "No se pudo abrir el PDF"); }
+                      }}>
+                        PDF
+                      </Button>
+                    ) : null}
                     <Button size="sm" variant="outline" onClick={() => setEditingExpense(expense)}>
                       Editar
                     </Button>
