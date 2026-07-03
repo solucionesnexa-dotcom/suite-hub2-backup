@@ -1,4 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
+import nexaLogo from "@/assets/nexa-logo.png.asset.json";
 import { LogOut, User as UserIcon, WalletCards } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -47,7 +48,7 @@ export function AppHeader({ title }: { title?: string }) {
 
   return (
     <header className="sticky top-0 z-10 flex h-14 items-center gap-3 border-b bg-background/80 px-4 backdrop-blur">
-      <img src="/logo.svg" alt="Nexa" className="h-8 w-auto mr-2 hidden sm:inline" />
+      <img src={nexaLogo.url} alt="Nexa" className="h-8 w-auto mr-2 hidden sm:inline" />
       <SidebarTrigger />
       <Separator orientation="vertical" className="h-6" />
       <h1 className="text-sm font-medium text-foreground">{title}</h1>

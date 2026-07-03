@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import nexaLogo from "@/assets/nexa-logo.png.asset.json";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureCurrentUserSetup } from "@/lib/nexa";
@@ -153,9 +154,7 @@ function AuthPage() {
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="w-full max-w-md">
         <div className="mb-8 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary text-primary-foreground text-base font-semibold">
-            N
-          </div>
+          <img src={nexaLogo.url} alt="Nexa Suite" className="h-10 w-10 rounded-md object-contain" />
           <div>
             <h1 className="text-lg font-semibold tracking-tight">Nexa Suite</h1>
             <p className="text-xs text-muted-foreground">Plataforma interna de la agencia</p>
