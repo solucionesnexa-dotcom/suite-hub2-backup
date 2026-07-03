@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { db } from "@/lib/nexa";
 
 export type Workspace = { id: string; name: string; owner_id: string };
 
@@ -10,8 +9,6 @@ export function useCurrentWorkspace() {
     queryFn: async (): Promise<Workspace | null> => {
       const { data: userRes } = await supabase.auth.getUser();
       if (!userRes.user) return null;
-
-      await db.rpc("ensure_current_user_setup");
 
       const { data, error } = await supabase
         .from("workspaces")
