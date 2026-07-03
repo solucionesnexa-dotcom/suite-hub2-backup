@@ -84,9 +84,7 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader className="border-b">
         <div className="flex items-center gap-2 px-2 py-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground text-sm font-semibold">
-            N
-          </div>
+          <img src={nexaLogo.url} alt="Nexa" className="h-8 w-8 rounded-md object-contain" />
           <div className="flex flex-col leading-tight group-data-[collapsible=icon]:hidden">
             <span className="text-sm font-semibold tracking-tight">Nexa Suite</span>
             <span className="text-xs text-muted-foreground flex items-center gap-1">
