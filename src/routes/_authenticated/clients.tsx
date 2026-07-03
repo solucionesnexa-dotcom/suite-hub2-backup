@@ -238,6 +238,7 @@ function ClientsPage() {
                       variant="ghost"
                       size="icon"
                       disabled={!canEdit}
+                      aria-label={`Eliminar cliente ${c.name}`}
                       onClick={() => {
                         if (confirm(`¿Eliminar ${c.name}?`)) deleteMut.mutate(c.id);
                       }}

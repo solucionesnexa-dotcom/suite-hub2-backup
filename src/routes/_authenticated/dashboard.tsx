@@ -115,7 +115,7 @@ function DashboardPage() {
   ];
 
   return (
-    <AppShell title="Panel">
+    <AppShell title="Resumen de la agencia">
       <div className="mx-auto max-w-7xl space-y-8">
         <div>
           <h2 className="text-2xl font-semibold tracking-tight">Bienvenido</h2>
