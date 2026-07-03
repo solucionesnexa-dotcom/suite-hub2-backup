@@ -2,6 +2,10 @@ import { useEffect, useState } from "react";
 import { useCurrentWorkspace } from "@/hooks/useCurrentWorkspace";
 import { supabase } from "@/integrations/supabase/client";
 
+function formatDate(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
 export function useContaStats({ periodId }: { periodId?: string | null } = {}) {
   const { data: ws } = useCurrentWorkspace();
   const [stats, setStats] = useState({
@@ -18,15 +22,18 @@ export function useContaStats({ periodId }: { periodId?: string | null } = {}) {
       if (!ws) return;
       setLoading(true);
 
-      const monthStart = new Date();
-      monthStart.setDate(1);
-      monthStart.setHours(0, 0, 0, 0);
-      const monthEnd = new Date(monthStart);
-      monthEnd.setMonth(monthEnd.getMonth() + 1);
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      const currentQuarter = Math.ceil((monthStart.getMonth() + 1) / 3);
+      const currentQuarterStart = new Date(now.getFullYear(), (currentQuarter - 1) * 3, 1);
+      const currentQuarterEnd = new Date(now.getFullYear(), currentQuarter * 3, 1);
 
-      let quarterStart = new Date(monthStart);
-      let quarterEnd = new Date(monthEnd);
-      let quarterLabel = `Q${Math.ceil((monthStart.getMonth() + 1) / 3)}`;
+      let rangeStart = monthStart;
+      let rangeEnd = monthEnd;
+      let quarterStart = currentQuarterStart;
+      let quarterEnd = currentQuarterEnd;
+      let quarterLabel = `Q${currentQuarter}`;
 
       if (periodId) {
         const { data: period } = await supabase
@@ -37,39 +44,35 @@ export function useContaStats({ periodId }: { periodId?: string | null } = {}) {
 
         if (period) {
           const startMonth = (period.quarter - 1) * 3;
+          rangeStart = new Date(period.year, startMonth, 1);
+          rangeEnd = new Date(period.year, startMonth + 3, 1);
           quarterStart = new Date(period.year, startMonth, 1);
-          quarterStart.setHours(0, 0, 0, 0);
           quarterEnd = new Date(period.year, startMonth + 3, 1);
           quarterLabel = `Q${period.quarter}`;
         }
       }
 
-      const [monthlyResultData, quarterData] = await Promise.all([
-        supabase
-          .from("expenses")
-          .select("entry_type, base_amount, vat_amount, invoice_date")
-          .eq("workspace_id", ws.id)
-          .gte("invoice_date", monthStart.toISOString())
-          .lt("invoice_date", monthEnd.toISOString()),
-        supabase
-          .from("expenses")
-          .select("entry_type, base_amount, vat_amount, invoice_date")
-          .eq("workspace_id", ws.id)
-          .gte("invoice_date", quarterStart.toISOString())
-          .lt("invoice_date", quarterEnd.toISOString()),
-      ]);
+      const { data: periodRows } = await supabase
+        .from("expenses")
+        .select("entry_type, base_amount, vat_amount")
+        .eq("workspace_id", ws.id)
+        .gte("invoice_date", formatDate(rangeStart))
+        .lt("invoice_date", formatDate(rangeEnd));
 
-      const monthlyData = monthlyResultData.data ?? [];
-      const quarterRows = quarterData.data ?? [];
+      const { data: quarterRows } = await supabase
+        .from("expenses")
+        .select("entry_type, vat_amount")
+        .eq("workspace_id", ws.id)
+        .gte("invoice_date", formatDate(quarterStart))
+        .lt("invoice_date", formatDate(quarterEnd));
 
-      const monthlyIncome =
-        monthlyData.filter((row) => row.entry_type === "ingreso").reduce((sum, row) => sum + Number(row.base_amount ?? 0), 0);
-      const monthlyExpenses =
-        monthlyData.filter((row) => row.entry_type === "gasto").reduce((sum, row) => sum + Number(row.base_amount ?? 0), 0);
-      const vatPaid =
-        quarterRows.filter((row) => row.entry_type === "gasto").reduce((sum, row) => sum + Number(row.vat_amount ?? 0), 0);
-      const vatCollected =
-        quarterRows.filter((row) => row.entry_type === "ingreso").reduce((sum, row) => sum + Number(row.vat_amount ?? 0), 0);
+      const periodData = periodRows ?? [];
+      const quarterData = quarterRows ?? [];
+
+      const monthlyIncome = periodData.filter((row) => row.entry_type === "ingreso").reduce((sum, row) => sum + Number(row.base_amount ?? 0), 0);
+      const monthlyExpenses = periodData.filter((row) => row.entry_type === "gasto").reduce((sum, row) => sum + Number(row.base_amount ?? 0), 0);
+      const vatPaid = quarterData.filter((row) => row.entry_type === "gasto").reduce((sum, row) => sum + Number(row.vat_amount ?? 0), 0);
+      const vatCollected = quarterData.filter((row) => row.entry_type === "ingreso").reduce((sum, row) => sum + Number(row.vat_amount ?? 0), 0);
 
       setStats({
         monthlyIncome,
