@@ -85,13 +85,13 @@ function AuthPage() {
       }
     });
 
-    supabase.auth.getSession().then(async ({ data, error }) => {
+    supabase.auth.getUser().then(async ({ data, error }) => {
       if (error) {
         toast.error(error.message);
         await supabase.auth.signOut({ scope: "local" });
         return;
       }
-      if (data.session) {
+      if (data.user) {
         await completeAuthenticatedSession();
       }
     });
