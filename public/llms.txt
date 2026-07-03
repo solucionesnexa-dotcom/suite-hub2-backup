@@ -1,0 +1,9 @@
+# Nexa Suite
+
+> Plataforma interna de gestión y automatización para agencias que trabajan con pymes, clínicas y despachos. Incluye CRM, facturación, remesas SEPA, contabilidad y herramientas de operaciones.
+
+Nexa Suite es una aplicación privada de uso interno. La mayor parte de las páginas requieren autenticación y no están indexadas.
+
+## Pages
+
+- [Acceder](/auth): Inicio de sesión y registro con email o Google.
