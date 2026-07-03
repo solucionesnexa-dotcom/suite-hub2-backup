@@ -10,7 +10,22 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGri
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   ssr: false,
-  head: () => ({ meta: [{ title: "Panel · Nexa Suite" }] }),
+  head: () => ({
+    meta: [
+      { title: "Resumen de la agencia · Nexa Suite" },
+      {
+        name: "description",
+        content:
+          "Panel de control con KPIs de clientes, facturación, remesas SEPA y contabilidad anual de tu agencia.",
+      },
+      { property: "og:title", content: "Resumen de la agencia · Nexa Suite" },
+      {
+        property: "og:description",
+        content: "KPIs de clientes, facturación y contabilidad para tu agencia.",
+      },
+      { name: "robots", content: "noindex" },
+    ],
+  }),
   component: DashboardPage,
 });
 
