@@ -46,14 +46,10 @@ type ExpenseRecord = {
 
 export function ExpenseEditDialog({
   expense,
-  open,
-  onOpenChange,
   onSave,
   onDelete,
 }: {
   expense: ExpenseRecord;
-  open?: boolean;
-  onOpenChange?: (open: boolean) => void;
   onSave: (values: ExpenseFormValues) => void;
   onDelete: () => void;
 }) {
