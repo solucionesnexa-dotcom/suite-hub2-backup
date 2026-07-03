@@ -46,10 +46,14 @@ type ExpenseRecord = {
 
 export function ExpenseEditDialog({
   expense,
+  open,
+  onOpenChange,
   onSave,
   onDelete,
 }: {
   expense: ExpenseRecord;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   onSave: (values: ExpenseFormValues) => void;
   onDelete: () => void;
 }) {
@@ -73,10 +77,12 @@ export function ExpenseEditDialog({
   const entryType = watch("entry_type");
 
   return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm">Editar</Button>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      {open === undefined ? (
+        <DialogTrigger asChild>
+          <Button variant="outline" size="sm">Editar</Button>
+        </DialogTrigger>
+      ) : null}
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Editar movimiento</DialogTitle>

@@ -159,6 +159,8 @@ export default function ExpenseList() {
         {editingExpense ? (
           <ExpenseEditDialog
             expense={editingExpense}
+            open={!!editingExpense}
+            onOpenChange={(o) => { if (!o) setEditingExpense(null); }}
             onSave={handleSave}
             onDelete={() => handleDelete(editingExpense.id)}
           />
