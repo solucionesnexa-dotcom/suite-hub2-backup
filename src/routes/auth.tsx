@@ -306,6 +306,6 @@ function AuthPage() {
           </Link>
         </p>
       </div>
-    </div>
+    </main>
   );
 }
