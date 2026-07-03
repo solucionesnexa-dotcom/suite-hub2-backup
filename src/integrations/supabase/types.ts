@@ -918,7 +918,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      ensure_current_user_setup: { Args: never; Returns: undefined }
       has_global_role: {
         Args: { _role: Database["public"]["Enums"]["global_role"] }
         Returns: boolean
