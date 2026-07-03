@@ -1,8 +1,9 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import nexaLogo from "@/assets/nexa-logo.png.asset.json";
-import { useState, useEffect } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { ensureCurrentUserSetup } from "@/lib/nexa";
+import { lovable } from "@/integrations/lovable";
+import { ensureCurrentUserSetup } from "@/lib/auth.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -61,6 +62,15 @@ function AuthPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
 
+  const completeAuthenticatedSession = useCallback(async () => {
+    try {
+      await ensureCurrentUserSetup();
+      navigate({ to: getNextPath(), replace: true });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo preparar tu cuenta");
+    }
+  }, [navigate]);
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const authError = params.get("error_description") || params.get("error");
@@ -69,36 +79,25 @@ function AuthPage() {
       window.history.replaceState({}, document.title, "/auth");
     }
 
-    const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_IN" && session) {
-        try {
-          await ensureCurrentUserSetup();
-          navigate({ to: getNextPath(), replace: true });
-        } catch (error) {
-          toast.error(error instanceof Error ? error.message : "No se pudo preparar tu cuenta");
-        }
+        void completeAuthenticatedSession();
       }
     });
 
-    supabase.auth.getSession().then(async ({ data, error }) => {
+    supabase.auth.getUser().then(async ({ data, error }) => {
       if (error) {
         toast.error(error.message);
+        await supabase.auth.signOut({ scope: "local" });
         return;
       }
-      if (data.session) {
-        try {
-          await ensureCurrentUserSetup();
-          navigate({ to: getNextPath(), replace: true });
-        } catch (setupError) {
-          toast.error(
-            setupError instanceof Error ? setupError.message : "No se pudo preparar tu cuenta",
-          );
-        }
+      if (data.user) {
+        await completeAuthenticatedSession();
       }
     });
 
     return () => sub.subscription.unsubscribe();
-  }, [navigate]);
+  }, [completeAuthenticatedSession]);
 
   async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -119,12 +118,7 @@ function AuthPage() {
       return;
     }
     toast.success("Bienvenido");
-    try {
-      await ensureCurrentUserSetup();
-      navigate({ to: "/dashboard", replace: true });
-    } catch (setupError) {
-      toast.error(setupError instanceof Error ? setupError.message : "No se pudo preparar tu cuenta");
-    }
+    await completeAuthenticatedSession();
   }
 
   async function handleSignup(e: React.FormEvent<HTMLFormElement>) {
@@ -159,12 +153,7 @@ function AuthPage() {
       return;
     }
     toast.success("Cuenta creada. Revisa tu email si la confirmación está activada.");
-    try {
-      await ensureCurrentUserSetup();
-      navigate({ to: "/dashboard", replace: true });
-    } catch (setupError) {
-      toast.error(setupError instanceof Error ? setupError.message : "No se pudo preparar tu cuenta");
-    }
+    await completeAuthenticatedSession();
   }
 
   return (
@@ -188,17 +177,18 @@ function AuthPage() {
             disabled={loading}
             onClick={async () => {
               setLoading(true);
-              const { error } = await supabase.auth.signInWithOAuth({
-                provider: "google",
-                options: {
-                  redirectTo: getAuthRedirectUrl(),
-                  queryParams: {
-                    prompt: "select_account",
-                  },
-                },
+              const result = await lovable.auth.signInWithOAuth("google", {
+                redirect_uri: getAuthRedirectUrl(),
+                extraParams: { prompt: "select_account" },
               });
               setLoading(false);
-              if (error) toast.error(error.message);
+              if (result.error) {
+                toast.error(result.error.message);
+                return;
+              }
+              if (!result.redirected) {
+                await completeAuthenticatedSession();
+              }
             }}
           >
             <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
