@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import nexaLogo from "@/assets/nexa-logo.png.asset.json";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureCurrentUserSetup } from "@/lib/nexa";
