@@ -79,23 +79,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Nexa Suite" },
+      { title: "Nexa Suite — Gestión y automatización para agencias" },
       {
         name: "description",
-        content: "Plataforma interna de gestión y automatización para agencias.",
+        content:
+          "Plataforma interna para agencias de automatización: CRM, facturación, remesas SEPA, contabilidad y operaciones para pymes, clínicas y despachos.",
       },
       { name: "author", content: "Nexa Suite" },
-      { property: "og:title", content: "Nexa Suite" },
-      {
-        property: "og:description",
-        content: "Plataforma interna de gestión y automatización para agencias.",
-      },
+      { property: "og:site_name", content: "Nexa Suite" },
       { property: "og:type", content: "website" },
-      { name: "twitter:title", content: "Nexa Suite" },
-      {
-        name: "twitter:description",
-        content: "Plataforma interna de gestión y automatización para agencias.",
-      },
+      { name: "twitter:card", content: "summary_large_image" },
       {
         property: "og:image",
         content:
@@ -106,7 +99,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         content:
           "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/bbdf48db-01e0-45e5-a6b6-027ab3bfc8ba/id-preview-e331cdf8--944b6969-4fd1-4311-9286-2ed87deb15e4.lovable.app-1781007544572.png",
       },
-      { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },

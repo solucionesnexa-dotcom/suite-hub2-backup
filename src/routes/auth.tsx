@@ -15,7 +15,24 @@ import { z } from "zod";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
-  head: () => ({ meta: [{ title: "Acceder · Nexa Suite" }] }),
+  head: () => ({
+    meta: [
+      { title: "Acceder · Nexa Suite — Gestión de clientes y remesas" },
+      {
+        name: "description",
+        content:
+          "Accede a Nexa Suite para gestionar clientes, facturación, remesas SEPA y contabilidad de tu agencia. Inicia sesión con email o Google.",
+      },
+      { property: "og:title", content: "Acceder · Nexa Suite" },
+      {
+        property: "og:description",
+        content:
+          "Inicia sesión en Nexa Suite: CRM, facturación y remesas SEPA para agencias.",
+      },
+      { property: "og:url", content: "https://nexa-suite-hub.lovable.app/auth" },
+    ],
+    links: [{ rel: "canonical", href: "https://nexa-suite-hub.lovable.app/auth" }],
+  }),
   component: AuthPage,
 });
 
@@ -151,12 +168,14 @@ function AuthPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <main className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="w-full max-w-md">
         <div className="mb-8 flex items-center gap-3">
           <img src={nexaLogo.url} alt="Nexa Suite" className="h-10 w-10 rounded-md object-contain" />
           <div>
-            <h1 className="text-lg font-semibold tracking-tight">Nexa Suite</h1>
+            <h1 className="text-lg font-semibold tracking-tight">
+              Nexa Suite — Gestión de clientes y remesas
+            </h1>
             <p className="text-xs text-muted-foreground">Plataforma interna de la agencia</p>
           </div>
         </div>

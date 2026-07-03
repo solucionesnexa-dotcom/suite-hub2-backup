@@ -1,0 +1,20 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /clients
+Disallow: /factunexa
+Disallow: /contanexa
+Disallow: /settings
+Disallow: /usuarios
+Disallow: /pipeline
+Disallow: /presupuestos
+Disallow: /prospector
+Disallow: /retainer
+Disallow: /roi
+Disallow: /sop
+Disallow: /diagnostico
+Disallow: /creditos
+Disallow: /casos-exito
+Disallow: /kit-digital
+
+Sitemap: https://nexa-suite-hub.lovable.app/sitemap.xml
