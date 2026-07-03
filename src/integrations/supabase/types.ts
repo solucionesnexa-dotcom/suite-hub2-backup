@@ -330,6 +330,135 @@ export type Database = {
           },
         ]
       }
+      expense_categories: {
+        Row: {
+          color: string | null
+          created_at: string
+          id: string
+          name: string
+          type: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          type: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          type?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_categories_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expenses: {
+        Row: {
+          base_amount: number
+          category_id: string | null
+          category_other: string | null
+          created_at: string
+          description: string
+          entry_type: string
+          id: string
+          invoice_date: string
+          invoice_id: string | null
+          invoice_number: string | null
+          is_deductible: boolean
+          notes: string | null
+          payment_method: string | null
+          pdf_path: string | null
+          supplier_name: string | null
+          total_amount: number | null
+          updated_at: string
+          vat_amount: number | null
+          vat_rate: number
+          workspace_id: string
+        }
+        Insert: {
+          base_amount?: number
+          category_id?: string | null
+          category_other?: string | null
+          created_at?: string
+          description: string
+          entry_type: string
+          id?: string
+          invoice_date?: string
+          invoice_id?: string | null
+          invoice_number?: string | null
+          is_deductible?: boolean
+          notes?: string | null
+          payment_method?: string | null
+          pdf_path?: string | null
+          supplier_name?: string | null
+          total_amount?: number | null
+          updated_at?: string
+          vat_amount?: number | null
+          vat_rate?: number
+          workspace_id: string
+        }
+        Update: {
+          base_amount?: number
+          category_id?: string | null
+          category_other?: string | null
+          created_at?: string
+          description?: string
+          entry_type?: string
+          id?: string
+          invoice_date?: string
+          invoice_id?: string | null
+          invoice_number?: string | null
+          is_deductible?: boolean
+          notes?: string | null
+          payment_method?: string | null
+          pdf_path?: string | null
+          supplier_name?: string | null
+          total_amount?: number | null
+          updated_at?: string
+          vat_amount?: number | null
+          vat_rate?: number
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expenses_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoices: {
         Row: {
           amount: number
@@ -630,6 +759,68 @@ export type Database = {
           },
           {
             foreignKeyName: "sepa_mandates_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tax_periods: {
+        Row: {
+          calculated_at: string | null
+          created_at: string
+          expenses: number
+          id: string
+          income: number
+          irpf_estimated: number
+          irpf_rate: number
+          notes: string | null
+          quarter: number
+          updated_at: string
+          vat_collected: number
+          vat_paid: number
+          vat_result: number
+          workspace_id: string
+          year: number
+        }
+        Insert: {
+          calculated_at?: string | null
+          created_at?: string
+          expenses?: number
+          id?: string
+          income?: number
+          irpf_estimated?: number
+          irpf_rate?: number
+          notes?: string | null
+          quarter: number
+          updated_at?: string
+          vat_collected?: number
+          vat_paid?: number
+          vat_result?: number
+          workspace_id: string
+          year: number
+        }
+        Update: {
+          calculated_at?: string | null
+          created_at?: string
+          expenses?: number
+          id?: string
+          income?: number
+          irpf_estimated?: number
+          irpf_rate?: number
+          notes?: string | null
+          quarter?: number
+          updated_at?: string
+          vat_collected?: number
+          vat_paid?: number
+          vat_result?: number
+          workspace_id?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tax_periods_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
