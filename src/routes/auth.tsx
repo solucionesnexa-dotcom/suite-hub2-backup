@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import nexaLogo from "@/assets/nexa-logo.png.asset.json";
-import { useState, useEffect } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
 import { ensureCurrentUserSetup } from "@/lib/auth.functions";
@@ -62,14 +62,14 @@ function AuthPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
 
-  async function completeAuthenticatedSession() {
+  const completeAuthenticatedSession = useCallback(async () => {
     try {
       await ensureCurrentUserSetup();
       navigate({ to: getNextPath(), replace: true });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "No se pudo preparar tu cuenta");
     }
-  }
+  }, [navigate]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -97,7 +97,7 @@ function AuthPage() {
     });
 
     return () => sub.subscription.unsubscribe();
-  }, [navigate]);
+  }, [completeAuthenticatedSession]);
 
   async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();

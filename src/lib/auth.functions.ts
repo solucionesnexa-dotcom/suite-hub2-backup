@@ -83,7 +83,10 @@ export const ensureCurrentUserSetup = createServerFn({ method: "POST" })
 
     const { error: creditsError } = await admin
       .from("credit_accounts")
-      .upsert({ workspace_id: workspaceId, balance: 0, updated_at: now }, { onConflict: "workspace_id" });
+      .upsert(
+        { workspace_id: workspaceId, balance: 0, updated_at: now },
+        { onConflict: "workspace_id", ignoreDuplicates: true },
+      );
     if (creditsError) throw creditsError;
 
     return { workspaceId };
