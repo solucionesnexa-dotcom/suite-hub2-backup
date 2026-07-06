@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import nexaLogo from "@/assets/nexa-logo.png.asset.json";
+const nexaLogo = { url: "/nexa-logo.png" };
 import { useCallback, useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";

@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import nexaLogo from "@/assets/nexa-logo.png.asset.json";
+const nexaLogo = { url: "/nexa-logo.png" };
 import {
   BadgeEuro,
   BriefcaseBusiness,

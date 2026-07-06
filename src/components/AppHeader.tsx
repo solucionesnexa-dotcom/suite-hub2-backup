@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
-import nexaLogo from "@/assets/nexa-logo.png.asset.json";
+const nexaLogo = { url: "/nexa-logo.png" };
 import { LogOut, User as UserIcon, WalletCards } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
