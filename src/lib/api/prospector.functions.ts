@@ -28,16 +28,20 @@ export const searchGoogleMapsLeads = createServerFn({ method: "POST" })
   .inputValidator(searchSchema)
   .handler(async ({ data }) => {
     const apiKey = getServerConfig().googleMapsApiKey;
-    if (!apiKey) {
-      throw new Error("Falta GOOGLE_MAPS_API_KEY en el entorno del Worker/servidor.");
+    const lovableKey = process.env.LOVABLE_API_KEY;
+    if (!apiKey || !lovableKey) {
+      throw new Error("Faltan credenciales del conector Google Maps (LOVABLE_API_KEY / GOOGLE_MAPS_API_KEY).");
     }
 
     const textQuery = `${data.query} en ${data.location}`;
-    const response = await fetch("https://places.googleapis.com/v1/places:searchText", {
+    // Route through the Lovable connector gateway — the raw key is referrer-restricted
+    // and rejects direct server-side calls with API_KEY_HTTP_REFERRER_BLOCKED.
+    const response = await fetch("https://connector-gateway.lovable.dev/google_maps/places/v1/places:searchText", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-Goog-Api-Key": apiKey,
+        Authorization: `Bearer ${lovableKey}`,
+        "X-Connection-Api-Key": apiKey,
         "X-Goog-FieldMask":
           "places.id,places.displayName,places.formattedAddress,places.websiteUri,places.nationalPhoneNumber,places.rating,places.userRatingCount,places.googleMapsUri,places.primaryType,places.types",
       },
@@ -53,6 +57,7 @@ export const searchGoogleMapsLeads = createServerFn({ method: "POST" })
       const message = await response.text();
       throw new Error(`Google Maps rechazo la busqueda (${response.status}): ${message}`);
     }
+
 
     const payload = (await response.json()) as { places?: Array<any> };
     return (payload.places ?? []).map((place): GoogleMapsLead => ({
