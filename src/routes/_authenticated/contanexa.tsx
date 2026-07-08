@@ -45,6 +45,7 @@ interface ExpenseRow {
   payment_method: string | null;
   is_deductible: boolean;
   notes: string | null;
+  source?: string;
 }
 
 interface CategoryRow {
@@ -92,20 +93,22 @@ function ContaNexaPage() {
   const range = useMemo(() => quarterRange(year, quarter), [year, quarter]);
 
   const expensesQ = useQuery({
-    queryKey: ["conta-expenses", workspaceId, year, quarter],
-    enabled: !!workspaceId,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("expenses")
-        .select("*")
+  queryKey: ["conta-expenses", workspaceId, year, quarter],
+  enabled: !!workspaceId,
+  queryFn: async () => {
+    const [manualRes, facturasRes] = await Promise.all([
+      supabase.from("expenses").select("*")
         .eq("workspace_id", workspaceId!)
-        .gte("invoice_date", range.start)
-        .lte("invoice_date", range.end)
-        .order("invoice_date", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as ExpenseRow[];
-    },
-  });
+        .gte("invoice_date", range.start).lte("invoice_date", range.end),
+      supabase.from("v_conta_ingresos").select("*")
+        .eq("workspace_id", workspaceId!)
+        .gte("invoice_date", range.start).lte("invoice_date", range.end),
+    ]);
+    if (manualRes.error) throw manualRes.error;
+    if (facturasRes.error) throw facturasRes.error;
+    return [...(manualRes.data ?? []), ...(facturasRes.data ?? [])] as ExpenseRow[];
+  },
+});
 
   const categoriesQ = useQuery({
     queryKey: ["conta-categories", workspaceId],
@@ -508,19 +511,17 @@ function MovementsTable({
                       <TableCell className="text-right tabular-nums">{eur(Number(r.vat_amount))}</TableCell>
                       <TableCell className="text-right tabular-nums font-medium">{eur(Number(r.total_amount))}</TableCell>
                       <TableCell className="text-right">
-                        <Button size="icon" variant="ghost" onClick={() => openEdit(r)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => {
-                            if (confirm("¿Eliminar este movimiento?")) delMut.mutate(r.id);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
+                      {r.source !== "factura" && (
+                        <>
+                          <Button size="icon" variant="ghost" onClick={() => openEdit(r)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button size="icon" variant="ghost" onClick={() => { if (confirm("¿Eliminar este movimiento?")) delMut.mutate(r.id); }}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
+                    </TableCell>
                     </TableRow>
                   );
                 })}
