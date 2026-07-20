@@ -5,11 +5,11 @@ SECURITY DEFINER
 SET search_path TO 'public'
 AS $$
 DECLARE
-  current_user_id UUID := auth.uid();
-  current_email TEXT := COALESCE(auth.jwt() ->> 'email', '');
-  current_full_name TEXT;
+  current_user_id        UUID := auth.uid();
+  current_email          TEXT := COALESCE(auth.jwt() ->> 'email', '');
+  current_full_name      TEXT;
   current_workspace_name TEXT;
-  existing_workspace_id UUID;
+  existing_workspace_id  UUID;
 BEGIN
   IF current_user_id IS NULL THEN
     RAISE EXCEPTION 'Not authenticated' USING ERRCODE = '28000';
@@ -36,10 +36,10 @@ BEGIN
   VALUES (current_user_id, current_email, current_full_name, now())
   ON CONFLICT (id) DO UPDATE
   SET
-    email = EXCLUDED.email,
-    full_name = COALESCE(public.profiles.full_name, EXCLUDED.full_name),
+    email         = EXCLUDED.email,
+    full_name     = COALESCE(public.profiles.full_name, EXCLUDED.full_name),
     ultimo_acceso = now(),
-    updated_at = now();
+    updated_at    = now();
 
   SELECT wm.workspace_id
   INTO existing_workspace_id
@@ -84,7 +84,7 @@ BEGIN
   END IF;
 
   INSERT INTO public.credit_accounts (workspace_id, balance)
-  VALUES (existing_workspace_id, 0)
+  VALUES (existing_workspace_id, 20)
   ON CONFLICT (workspace_id) DO NOTHING;
 END;
 $$;
